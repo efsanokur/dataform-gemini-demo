@@ -1,0 +1,51 @@
+config {
+  type: "table",
+  database: `${dataform.projectConfig.vars.rockadsProject}`,
+  name: "id6736979983_single_cost_dm",
+  schema: "id6736979983_appsflyer_ds",
+  tags: ['appsflyer_id6736979983_main']
+}
+
+
+  WITH
+    cost_dm AS (
+    SELECT
+      DATE(date) as report_date,
+      TIMESTAMP_TRUNC(_dl_partition_time, DAY) as cost_etl_dl_partition_time_calc,
+      IFNULL(media_source, 'None') as media_source,
+      REPLACE(app_id, '.', '_') as appsflyer_os_id,
+      'id6736979983' as app_id,
+      IFNULL(campaign, 'None') as campaign,
+      IFNULL(adset, IF(media_source = 'applovin_int', '_DEFAULT', 'None')) as adset,
+      IFNULL(ad, 'None') as ad,
+      IFNULL(geo, 'None') as geo,
+      v,
+      currency,
+      SUM(cost) total_cost,
+      SUM(installs) total_installs,
+      SUM(clicks) total_clicks,
+      SUM(impressions) AS total_impressions,
+      SUM(re_attributions) AS total_re_attributions,
+      SUM(re_engagements) AS total_re_engagements,
+      SUM(video_completions) AS total_video_completions,
+      SUM(video_25p_views) AS total_video_25p_views,
+      SUM(video_50p_views) AS total_video_50p_views,
+      SUM(video_75p_views) AS total_video_75p_views
+    FROM
+     `${dataform.projectConfig.vars.rockadsProject}.appsflyer_data_locker_id6738388891.cost_etl_geo`
+    WHERE
+      TIMESTAMP_TRUNC(_dl_partition_time, DAY) >= TIMESTAMP(DATE_SUB(CURRENT_DATE(), INTERVAL 1000 DAY))
+      and app_id in ('id6736979983', 'com.shorten')
+    GROUP BY
+      ALL )
+  SELECT * FROM (
+  SELECT
+    * EXCEPT(v,
+      cost_etl_dl_partition_time_calc)
+  FROM
+    cost_dm
+  QUALIFY
+    ROW_NUMBER() OVER(PARTITION BY report_date, media_source, app_id, campaign, adset, ad, geo, currency ORDER BY cost_etl_dl_partition_time_calc DESC, v DESC) = 1 AND
+    ROW_NUMBER() OVER(PARTITION BY report_date, media_source, app_id, ad, adset, geo, currency, cast(total_cost as string), cast(total_installs as string), cast(total_clicks as string) ORDER BY cost_etl_dl_partition_time_calc DESC, v DESC) = 1
+    )
+  QUALIFY ROW_NUMBER() OVER(PARTITION BY report_date, media_source, app_id, ad, campaign, adset, geo, currency,cast(total_installs as string), cast(total_clicks as string) ORDER BY total_cost DESC) = 1

@@ -1,0 +1,42 @@
+config {
+  type: "operations",
+  database: `${dataform.projectConfig.vars.rockadsProject}`,
+  name: "itunes_account_names",
+  schema: "mapping_tables",
+  tags: ['itunes_account_names']
+}
+
+CREATE OR REPLACE TABLE
+  `${dataform.projectConfig.vars.rockadsProject}.mapping_tables.itunes_account_names` AS
+SELECT
+  DISTINCT account_number,
+  account_name,
+  account_type,
+  company_name
+FROM (
+  SELECT
+    *
+  FROM
+    `${dataform.projectConfig.vars.rockadsProject}.mapping_tables.itunes_account_names`
+  UNION ALL
+  SELECT
+    account_number,
+    account_name,
+    account_type,
+    company_name
+  FROM
+    `${dataform.projectConfig.vars.rockadsProject}.itunes.itunes_accounts` );
+UPDATE
+  `${dataform.projectConfig.vars.rockadsProject}.mapping_tables.itunes_account_names` ian
+SET
+  ian.company_name = ia.company_name
+FROM
+  ${dataform.projectConfig.vars.rockadsProject}.itunes.itunes_accounts ia
+WHERE
+  ian.account_number = ia.account_number
+  AND ian.account_type = ia.account_type
+  AND ian.company_name IS NULL;
+CREATE OR REPLACE TABLE `${dataform.projectConfig.vars.rockadsProject}.mapping_tables.itunes_account_names`  AS
+SELECT * FROM `${dataform.projectConfig.vars.rockadsProject}.mapping_tables.itunes_account_names`
+QUALIFY ROW_NUMBER() OVER(PARTITION BY account_number, account_type) = 1;
+

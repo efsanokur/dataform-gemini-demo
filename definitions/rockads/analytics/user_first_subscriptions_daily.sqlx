@@ -1,0 +1,202 @@
+config {
+  type: "table",
+  database: `${dataform.projectConfig.vars.rockadsProject}`,
+  name: "user_first_subscriptions",
+  schema: "subscription_cohorts",
+  tags: ['rockads_main_analytics_pipeline'],
+  dependencies: ["user_subscriber_detailed_report"]
+}
+
+WITH
+  itunes_subscriber_detailed_report AS (
+    SELECT DISTINCT * FROM
+  (
+  SELECT
+    subscriber_id,
+    account_number,
+    app_apple_id,
+    event_date,
+    ROW_NUMBER() OVER(PARTITION BY subscriber_id, app_apple_id ORDER BY event_date ASC) AS rn
+  FROM
+    `${dataform.projectConfig.vars.rockadsProject}.itunes.itunes_subscriber_detailed_report_*`
+  WHERE
+    _TABLE_SUFFIX BETWEEN '${rockads_analytics_libs.formattedBQPeriodStartDateYYYYMMDD}'
+    AND '${rockads_analytics_libs.formattedDate1DayAgoYYYYMMDD}'
+    AND account_number IN ${rockads_analytics_libs.accountNumbersSqlInClause}
+    AND subscriber_id IS NOT NULL
+    AND TRIM(subscriber_id) != ''
+
+  UNION ALL
+  SELECT
+    subscriber_id,
+    account_number,
+    app_apple_id,
+    event_date,
+    ROW_NUMBER() OVER(PARTITION BY subscriber_id, app_apple_id ORDER BY event_date ASC) AS rn
+
+  FROM
+    `${dataform.projectConfig.vars.rockadsProject}.itunes_connect_api.itunes_subscriber_detailed_report_*` iss
+  LEFT JOIN
+  (
+  SELECT DISTINCT vendor_number, account_number
+  FROM `rockads-thirdparty.itunes.itunes_vendors`
+  ) vendors
+  ON iss.vendor_number = vendors.vendor_number
+
+  WHERE
+    _TABLE_SUFFIX BETWEEN '${rockads_analytics_libs.formattedBQPeriodStartDateYYYYMMDD}'
+    AND '${rockads_analytics_libs.formattedDate1DayAgoYYYYMMDD}'
+    AND vendors.vendor_number IN (
+        # kompanion
+        '87864986')
+    AND subscriber_id IS NOT NULL
+    AND TRIM(subscriber_id) != ''
+  )
+
+  ),
+  android_subscriber_detailed_report AS (
+  SELECT
+    LEFT(order_number, 24) AS subscriber_id,
+    bucket_name AS account_number,
+    product_id AS app_id,
+    order_charged_date AS event_date,
+    ROW_NUMBER() OVER(PARTITION BY LEFT(order_number, 24),
+      product_id
+    ORDER BY
+      order_charged_date ASC) AS rn
+  FROM
+    `${dataform.projectConfig.vars.rockadsProject}.googlePlay.googlePlay_sales_*`
+  WHERE
+    _TABLE_SUFFIX BETWEEN FORMAT_DATE("%Y%m%d", DATE_TRUNC('${rockads_analytics_libs.formattedBQPeriodStartDateBqDate}', MONTH))
+    AND FORMAT_DATE("%Y%m%d", DATE_TRUNC('${rockads_analytics_libs.formattedDate1DayAgoBqDate}', MONTH))
+    AND order_charged_date >= '${rockads_analytics_libs.formattedBQPeriodStartDateBqDate}'
+    AND order_charged_date < CURRENT_DATE()
+    AND bucket_name IN ${rockads_analytics_libs.bucketNamesSqlInClause} ),
+  zotlo_subscriber_detailed_report AS (
+  SELECT
+    subscriberId AS subscriber_id,
+    teamName AS account_number,
+    appName AS app_id,
+    DATE(eventDate) AS event_date,
+    ROW_NUMBER() OVER(PARTITION BY subscriberId, appName ORDER BY DATE(eventDate) ASC) AS rn
+  FROM
+    `${dataform.projectConfig.vars.zotloProject}.zotlo_events.purchase_*`
+  WHERE
+    _TABLE_SUFFIX BETWEEN '${rockads_analytics_libs.formattedBQPeriodStartDateYYYYMMDD}'
+    AND '${rockads_analytics_libs.formattedDate1DayAgoYYYYMMDD}'
+    AND ${rockads_analytics_libs.team_names_condition}
+    AND eventStatus = "success" ),
+  stripe_charges AS (
+    SELECT * FROM (
+    SELECT *, "Kegelmen" AS app_id FROM `${dataform.projectConfig.vars.rockadsProject}.stripe.kegelmen_charges`
+    UNION ALL
+    SELECT *, "Moovbuddy" AS app_id FROM `${dataform.projectConfig.vars.rockadsProject}.stripe.moovbuddy_charges`
+    UNION ALL
+    SELECT *, "Youngface" AS app_id FROM `${dataform.projectConfig.vars.rockadsProject}.stripe.youngface_charges`
+    ) WHERE customer IS NOT NULL AND paid = TRUE AND status = "succeeded" AND captured = TRUE
+    AND DATE(TIMESTAMP_SECONDS(created)) < CURRENT_DATE()
+    ),
+
+    stripe_subscriber_detailed_report AS (
+    SELECT
+          customer AS subscriber_id,
+          "DGT Yazılım" AS account_number,
+          app_id,
+          DATE(TIMESTAMP_SECONDS(created)) AS event_date,
+          ROW_NUMBER() OVER(PARTITION BY customer, app_id ORDER BY DATE(TIMESTAMP_SECONDS(created)) ASC) AS rn
+    FROM stripe_charges
+    ),
+  user_first_subscriptions AS (
+  SELECT
+    *
+  FROM
+    `${dataform.projectConfig.vars.rockadsProject}.subscription_cohorts.user_first_subscriptions`
+  UNION ALL
+  SELECT
+    isdr.subscriber_id,
+    isdr.account_number,
+    CASE
+      WHEN ia.company_name = "Gencontact" THEN "Getcontact"
+      ELSE ia.company_name
+  END
+    AS company_name,
+    "iOS" AS platform,
+    isdr.app_apple_id AS app_id,
+    isdr.event_date AS first_subscription_date
+  FROM
+    itunes_subscriber_detailed_report isdr
+  LEFT JOIN
+    `${dataform.projectConfig.vars.rockadsProject}.itunes.itunes_accounts` ia
+  ON
+    ia.account_number = isdr.account_number
+  WHERE
+    rn = 1
+    AND subscriber_id NOT IN (
+    SELECT
+      DISTINCT subscriber_id
+    FROM
+      `${dataform.projectConfig.vars.rockadsProject}.subscription_cohorts.user_first_subscriptions`)
+  UNION ALL
+  SELECT
+       asdr.subscriber_id,
+       asdr.account_number,
+       CASE
+            WHEN gpt.company_name = "Gtc" THEN "Getcontact"
+            WHEN gpt.company_name = "Moyra Limited" THEN "Moyra Teknoloji"
+            WHEN gpt.company_name = "Moovbuddy" THEN "DGT Yazılım"
+       ELSE gpt.company_name END AS company_name,
+    'Android' AS platform,
+    asdr.app_id,
+    asdr.event_date AS first_subscription_date
+  FROM
+    android_subscriber_detailed_report asdr
+  LEFT JOIN
+    `${dataform.projectConfig.vars.rockadsProject}.googlePlay.googlePlay_tokens` gpt
+  ON
+    gpt.bucket_name = asdr.account_number
+  WHERE
+    rn = 1
+    AND subscriber_id NOT IN (
+    SELECT
+      DISTINCT subscriber_id
+    FROM
+      `${dataform.projectConfig.vars.rockadsProject}.subscription_cohorts.user_first_subscriptions`)
+  UNION ALL
+  SELECT
+      zsdr.subscriber_id,
+      zsdr.account_number,
+      CASE
+            WHEN zsdr.account_number = "Alivex" THEN "Kompanion"
+            WHEN zsdr.account_number = "Astral Coach &amp;amp; Moyra" THEN "Moyra Teknoloji"
+      ELSE zsdr.account_number END AS company_name,
+    "Web" AS platform,
+    zsdr.app_id,
+    zsdr.event_date AS first_subscription_date
+  FROM
+    zotlo_subscriber_detailed_report zsdr
+  WHERE
+    rn = 1
+    AND subscriber_id NOT IN (
+    SELECT
+      DISTINCT subscriber_id
+    FROM
+      `${dataform.projectConfig.vars.rockadsProject}.subscription_cohorts.user_first_subscriptions`)
+
+  UNION ALL
+
+    SELECT
+           ssdr.subscriber_id,
+           ssdr.account_number,
+           "DGT Yazılım" AS company_name,
+           'Stripe' AS platform,
+           ssdr.app_id,
+           ssdr.event_date AS first_subscription_date
+    FROM stripe_subscriber_detailed_report ssdr
+    WHERE ssdr.rn = 1
+
+      )
+SELECT
+      subscriber_id, account_number, company_name, platform, app_id,
+      MIN(first_subscription_date) AS first_subscription_date
+FROM user_first_subscriptions
+GROUP BY 1,2,3,4,5

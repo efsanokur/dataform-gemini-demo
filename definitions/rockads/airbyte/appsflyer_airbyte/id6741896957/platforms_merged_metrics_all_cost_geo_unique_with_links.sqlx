@@ -1,0 +1,457 @@
+config {
+  type: "table",
+    bigquery: {
+    partitionBy: "report_date"
+  },
+  database: `${dataform.projectConfig.vars.rockadsProject}`,
+  name: "id6741896957_platforms_merged_metrics_all_cost_geo_unique_with_links",
+  schema: "id6741896957_appsflyer_ds",
+  dependencies: ['id6741896957_facebook_links_urls', 'id6741896957_activity_union'],
+  tags: ['appsflyer_id6741896957_main']
+}
+WITH raw_main_data as (
+SELECT non_rltv.*,
+rltv.d0 as d0,
+rltv.d1 as d1,
+rltv.d3 as d3,
+rltv.d7 as d7,
+rltv.d15 as d15,
+rltv.d30 as d30,
+rltv.d60 AS d60,
+rltv.d90 AS d90,
+rltv.d120 AS d120,
+rltv.d150 AS d150,
+rltv.d180 AS d180,
+rltv.d210 AS d210,
+rltv.d240 AS d240,
+rltv.d270 AS d270,
+rltv.d300 AS d300,
+rltv.d330 AS d330,
+rltv.d360 AS d360,
+rltv.ltv as ltv,
+
+FROM (
+
+SELECT
+    IFNULL(ltv.report_date, activity.report_date) AS report_date,
+    'id6741896957' as app_id,
+    IFNULL(ltv.geo, activity.geo) as geo,
+    IFNULL(ltv.campaign, activity.campaign) as campaign,
+    IFNULL(ltv.adset, activity.af_adset) as adset,
+    IFNULL(ltv.ad, activity.ad) as ad,
+    IFNULL(ltv.media_source, activity.media_source) as media_source,
+    IFNULL(ltv.appsflyer_os_id, activity.appsflyer_os_id) as appsflyer_os_id,
+    rc_trial_converted_event,
+    rc_renewal_event,
+    rc_cancellation_event,
+    rc_trial_started_event,
+    rc_trial_cancelled_event,
+    rc_initial_purchase_event,
+    rc_non_subscription_purchase_event,
+    rc_expiration_event,
+    rc_billing_issue_event,
+    rc_product_change_event,
+    af_purchase,
+    package_purchase,
+    unique_rc_trial_converted_event,
+    unique_rc_renewal_event,
+    unique_rc_cancellation_event,
+    unique_rc_trial_started_event,
+    unique_rc_trial_cancelled_event,
+    unique_rc_initial_purchase_event,
+    unique_rc_non_subscription_purchase_event,
+    unique_rc_expiration_event,
+    unique_rc_billing_issue_event,
+    unique_rc_product_change_event,
+    unique_af_purchase,
+    unique_package_purchase,
+    revenue_rc_trial_converted_event,
+    revenue_rc_renewal_event,
+    revenue_rc_cancellation_event,
+    revenue_rc_trial_started_event,
+    revenue_rc_trial_cancelled_event,
+    revenue_rc_initial_purchase_event,
+    revenue_rc_non_subscription_purchase_event,
+    revenue_rc_expiration_event,
+    revenue_rc_billing_issue_event,
+    revenue_rc_product_change_event,
+    revenue_af_purchase,
+    revenue_package_purchase,
+    event_revenue,
+    total_cost,
+    total_clicks,
+    total_installs,
+    total_impressions,
+    total_re_attributions,
+    total_re_engagements,
+    total_video_completions,
+    total_video_25p_views,
+    total_video_50p_views,
+    total_video_75p_views,
+    fb_total_outbound_clicks,
+    fb_total_impressions,
+    fb_total_clicks,
+    thumbnail_url,
+    video_url,
+    total_master_installs,
+    activity.activity_event_revenue,
+    activity.activity_revenue_paywallShowed,
+    activity.activity_revenue_paymentInit,
+    activity.activity_revenue_rc_renewal_event,
+    activity.activity_revenue_rc_trial_converted_event,
+    activity.activity_revenue_rc_expiration_event,
+    activity.activity_revenue_rc_cancellation_event,
+    activity.activity_revenue_rc_billing_issue_event,
+    activity.activity_revenue_rc_initial_purchase_event,
+    activity.activity_revenue_rc_product_change_event,
+    activity.activity_revenue_rc_trial_started_event,
+    activity.activity_revenue_rc_trial_cancelled_event,
+    activity.activity_revenue_WebToAppInstall,
+    activity.activity_revenue_rc_non_subscription_purchase_event,
+    activity.activity_revenue_af_purchase,
+    activity.activity_revenue_package_purchase,
+
+FROM (
+
+SELECT
+    IFNULL(main.report_date, master.install_time) AS report_date,
+    'id6741896957' as app_id,
+    IFNULL(main.geo, master.geo) as geo,
+    IFNULL(main.campaign, master.campaign) as campaign,
+    IFNULL(main.adset, master.adset) as adset,
+    IFNULL(main.ad, master.ad) as ad,
+    IFNULL(main.media_source, master.media_source) as media_source,
+    IFNULL(main.appsflyer_os_id, master.appsflyer_app_id) as appsflyer_os_id,
+    main.rc_trial_converted_event,
+    main.rc_renewal_event,
+    main.rc_cancellation_event,
+    main.rc_trial_started_event,
+    main.rc_trial_cancelled_event,
+    main.rc_initial_purchase_event,
+    main.rc_non_subscription_purchase_event,
+    main.rc_expiration_event,
+    main.rc_billing_issue_event,
+    main.rc_product_change_event,
+    main.af_purchase,
+    main.package_purchase,
+    main.unique_rc_trial_converted_event,
+    main.unique_rc_renewal_event,
+    main.unique_rc_cancellation_event,
+    main.unique_rc_trial_started_event,
+    main.unique_rc_trial_cancelled_event,
+    main.unique_rc_initial_purchase_event,
+    main.unique_rc_non_subscription_purchase_event,
+    main.unique_rc_expiration_event,
+    main.unique_rc_billing_issue_event,
+    main.unique_rc_product_change_event,
+    main.unique_af_purchase,
+    main.unique_package_purchase,
+    main.revenue_rc_trial_converted_event,
+    main.revenue_rc_renewal_event,
+    main.revenue_rc_cancellation_event,
+    main.revenue_rc_trial_started_event,
+    main.revenue_rc_trial_cancelled_event,
+    main.revenue_rc_initial_purchase_event,
+    main.revenue_rc_non_subscription_purchase_event,
+    main.revenue_rc_expiration_event,
+    main.revenue_rc_billing_issue_event,
+    main.revenue_rc_product_change_event,
+    main.revenue_af_purchase,
+    main.revenue_package_purchase,
+    main.event_revenue,
+    main.total_cost,
+    main.total_clicks,
+    main.total_installs,
+    main.total_impressions,
+    main.total_re_attributions,
+    main.total_re_engagements,
+    main.total_video_completions,
+    main.total_video_25p_views,
+    main.total_video_50p_views,
+    main.total_video_75p_views,
+    main.fb_total_outbound_clicks,
+    main.fb_total_impressions,
+    main.fb_total_clicks,
+    main.thumbnail_url,
+    main.video_url,
+    master.total_master_installs
+
+FROM (
+SELECT
+  main.*,
+  links.thumbnail_url,
+  links.video_url
+FROM
+  `${dataform.projectConfig.vars.rockadsProject}.id6741896957_appsflyer_ds.id6741896957_platforms_merged_metrics_all_cost_geo_unique` main
+LEFT JOIN
+  `${dataform.projectConfig.vars.rockadsProject}.id6741896957_appsflyer_ds.id6741896957_facebook_links_urls` links
+ON
+  main.app_id=links.app_id
+  AND main.ad=links.ad
+  AND IF(main.media_source = 'facebook', 'Facebook Ads', main.media_source) = links.media_source
+  
+UNION ALL
+SELECT
+  report_date,
+  app_id,
+  geo,
+  campaign,
+  adset,
+  ad,
+  media_source,
+  appsflyer_os_id,
+  rc_trial_converted_event,
+  rc_renewal_event,
+  rc_cancellation_event,
+  rc_trial_started_event,
+  rc_trial_cancelled_event,
+  rc_initial_purchase_event,
+  rc_non_subscription_purchase_event,
+  rc_expiration_event,
+  rc_billing_issue_event,
+  rc_product_change_event,
+  af_purchase,
+  package_purchase,
+  unique_rc_trial_converted_event,
+  unique_rc_renewal_event,
+  unique_rc_cancellation_event,
+  unique_rc_trial_started_event,
+  unique_rc_trial_cancelled_event,
+  unique_rc_initial_purchase_event,
+  unique_rc_non_subscription_purchase_event,
+  unique_rc_expiration_event,
+  unique_rc_billing_issue_event,
+  unique_rc_product_change_event,
+  unique_af_purchase,
+  unique_package_purchase,
+  revenue_rc_trial_converted_event,
+  revenue_rc_renewal_event,
+  revenue_rc_cancellation_event,
+  revenue_rc_trial_started_event,
+  revenue_rc_trial_cancelled_event,
+  revenue_rc_initial_purchase_event,
+  revenue_rc_non_subscription_purchase_event,
+  revenue_rc_expiration_event,
+  revenue_rc_billing_issue_event,
+  revenue_rc_product_change_event,
+  revenue_af_purchase,
+  revenue_package_purchase,
+  event_revenue,
+  total_cost,
+  total_clicks,
+  total_installs,
+  total_impressions,
+  total_re_attributions,
+  total_re_engagements,
+  total_video_completions,
+  total_video_25p_views,
+  total_video_50p_views,
+  total_video_75p_views,
+  fb_total_outbound_clicks,
+  fb_total_impressions,
+  fb_total_clicks,
+  thumbnail_url,
+  video_url
+FROM
+  `${dataform.projectConfig.vars.rockadsProject}.id6741896957_appsflyer_ds.id6741896957_organic_combined_metrics_unique_dm`
+
+) main
+
+# Master Metrics Part (join)
+FULL OUTER JOIN (
+  SELECT
+    install_time,
+    REPLACE(appsflyer_app_id, '.', '_') appsflyer_app_id,
+    campaign,
+    ad,
+    adset,
+    geo,
+    media_source,
+    SUM(installs) AS total_master_installs
+  FROM
+    `rockads-thirdparty.all_appsflyer_ds.all_apps_master_metrics`
+  WHERE
+    install_time >= "2025-01-01"
+    AND appsflyer_app_id IN ('id6741896957')
+    AND geo != 'None'
+    AND installs > 0
+  GROUP BY
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7) master
+ON
+  main.report_date=master.install_time
+  AND main.appsflyer_os_id=master.appsflyer_app_id
+  AND main.campaign=master.campaign
+  AND main.adset=master.adset
+  AND main.ad=master.ad
+  AND main.geo=master.geo
+  AND main.media_source=master.media_source
+
+) ltv
+# Activity Part
+
+FULL OUTER JOIN rockads-thirdparty.id6741896957_appsflyer_ds.id6741896957_activity_union AS activity
+ON
+  ltv.report_date=activity.report_date
+  AND ltv.app_id=activity.app_id
+  AND ltv.geo=activity.geo
+  AND ltv.campaign=activity.campaign
+  AND ltv.adset=activity.af_adset
+  AND ltv.ad=activity.ad
+  AND ltv.media_source=activity.media_source
+  AND ltv.appsflyer_os_id=activity.appsflyer_os_id
+
+) non_rltv
+
+# LTV Cohort Revenue d1,3,7,15,30
+
+LEFT JOIN rockads-thirdparty.id6741896957_appsflyer_ds.id6741896957_revenue_ltv rltv
+ON
+  non_rltv.report_date=rltv.install_date
+  AND non_rltv.geo=rltv.country_code
+  AND non_rltv.campaign=rltv.campaign
+  AND non_rltv.adset=rltv.af_adset
+  AND non_rltv.ad=rltv.af_ad
+  AND non_rltv.media_source=rltv.media_source
+  AND non_rltv.appsflyer_os_id=rltv.appsflyer_os_id
+
+),
+
+-- LEVEL 1
+raw_main_data_with_os_l1 as (
+SELECT *, 
+IF(appsflyer_os_id IS NULL, 
+    CASE 
+        WHEN REGEXP_CONTAINS(campaign, r'_w2a_web_to_and_|_inapp_and_to_store_|_w2a_web2and_') THEN 'Android'
+        WHEN REGEXP_CONTAINS(campaign, r'_android_') THEN 'Android'
+        WHEN REGEXP_CONTAINS(campaign, r'_w2a_web_to_ios_|_inapp_ios_to_store_|_w2a_web2ios_|w2a_deneme') THEN 'IOS'
+        WHEN REGEXP_CONTAINS(campaign, r'_webpayment_') THEN 'Web'
+        WHEN REGEXP_CONTAINS(media_source, r'zotlo-') THEN 'Web'
+        ELSE 'IOS'
+    END,
+    CASE 
+        WHEN REGEXP_CONTAINS(campaign, r'_w2a_web_to_and_|_inapp_and_to_store_|_w2a_web2and_') THEN 'Android'
+        WHEN REGEXP_CONTAINS(campaign, r'_w2a_web_to_ios_|_inapp_ios_to_store_|_w2a_web2ios_|w2a_deneme') THEN 'IOS'
+        WHEN REGEXP_CONTAINS(campaign, r'_webpayment_') THEN 'Web'
+        WHEN REGEXP_CONTAINS(media_source, r'zotlo-') THEN 'Web'
+        WHEN REGEXP_CONTAINS(appsflyer_os_id, r'_') THEN 'Android'
+        ELSE 'IOS'
+    END
+) as db_operating_system,
+FROM raw_main_data
+
+),
+-- LEVEL 2
+raw_main_data_with_bases_l2 as (
+SELECT *, 
+IFNULL(event_revenue,0) as db_overview_revenue,
+IFNULL(activity_event_revenue,0) as db_activity_revenue,
+IFNULL(total_master_installs,0) as db_install,
+IFNULL(CASE 
+  WHEN db_operating_system = "Web" THEN total_cost
+  ELSE 0
+END,0) as db_web_cost,
+IFNULL(CASE 
+  WHEN db_operating_system!= "Web" THEN total_cost
+  ELSE 0
+END,0) as db_app_cost,
+
+CASE 
+  WHEN media_source = 'ORGANIC'
+  THEN IFNULL(IFNULL(total_master_installs,0), 0)
+  ELSE 0
+END as db_organic_install
+
+ FROM raw_main_data_with_os_l1
+)
+
+-- LEVEL 3
+SELECT *, 
+IFNULL(sum(total_cost),0) AS db_total_cost,
+
+IFNULL(SAFE_DIVIDE(SUM(IFNULL(d0,0)) , IFNULL(IFNULL(sum(total_cost),0) ,0)), 0) as db_roas_d0,
+IFNULL(SAFE_DIVIDE(SUM(IFNULL(d1,0)) , IFNULL(IFNULL(sum(total_cost),0) ,0)), 0) as db_roas_d1,
+IFNULL(SAFE_DIVIDE(SUM(IFNULL(d3,0)) , IFNULL(IFNULL(sum(total_cost),0) ,0)), 0) as db_roas_d3,
+IFNULL(SAFE_DIVIDE(SUM(IFNULL(d15,0)) , IFNULL(IFNULL(sum(total_cost),0) ,0)), 0) as db_roas_d15,
+IFNULL(SAFE_DIVIDE(SUM(IFNULL(d30,0)) , IFNULL(IFNULL(sum(total_cost),0) ,0)), 0) as db_roas_m1,
+IFNULL(SAFE_DIVIDE(SUM(IFNULL(d60,0)) , IFNULL(IFNULL(sum(total_cost),0) ,0)), 0) as db_roas_m2,
+IFNULL(SAFE_DIVIDE(SUM(IFNULL(d90,0)) , IFNULL(IFNULL(sum(total_cost),0) ,0)), 0) as db_roas_m3,
+IFNULL(SAFE_DIVIDE(SUM(IFNULL(d120,0)) , IFNULL(IFNULL(sum(total_cost),0) ,0)), 0) as db_roas_m4,
+IFNULL(SAFE_DIVIDE(SUM(IFNULL(d150,0)) , IFNULL(IFNULL(sum(total_cost),0) ,0)), 0) as db_roas_m5,
+IFNULL(SAFE_DIVIDE(SUM(IFNULL(d180,0)) , IFNULL(IFNULL(sum(total_cost),0) ,0)), 0) as db_roas_m6,
+IFNULL(SAFE_DIVIDE(SUM(IFNULL(d210,0)) , IFNULL(IFNULL(sum(total_cost),0) ,0)), 0) as db_roas_m7,
+IFNULL(SAFE_DIVIDE(SUM(IFNULL(d240,0)) , IFNULL(IFNULL(sum(total_cost),0) ,0)), 0) as db_roas_m8,
+IFNULL(SAFE_DIVIDE(SUM(IFNULL(d270,0)) , IFNULL(IFNULL(sum(total_cost),0) ,0)), 0) as db_roas_m9,
+IFNULL(SAFE_DIVIDE(SUM(IFNULL(d300,0)) , IFNULL(IFNULL(sum(total_cost),0) ,0)), 0) as db_roas_m10,
+IFNULL(SAFE_DIVIDE(SUM(IFNULL(d330,0)) , IFNULL(IFNULL(sum(total_cost),0) ,0)), 0) as db_roas_m11,
+IFNULL(SAFE_DIVIDE(SUM(IFNULL(d360,0)) , IFNULL(IFNULL(sum(total_cost),0) ,0)), 0) as db_roas_m12,
+IFNULL(SAFE_DIVIDE(sum(event_revenue),IFNULL(sum(total_cost),0)) ,0) as db_roas_ltv,
+IFNULL(SAFE_DIVIDE(sum(revenue_rc_initial_purchase_event),IFNULL(sum(total_cost),0)) ,0) as db_roas_subscribe,
+SAFE_DIVIDE(IFNULL(SUM(db_organic_install),0),IFNULL(SUM(db_install),0)) as organic_install_rate,
+SAFE_DIVIDE(sum(db_overview_revenue),sum(db_install)) as user_ltv_rpd,
+
+SUM(IFNULL(total_clicks,0))+SUM(IFNULL(fb_total_outbound_clicks,0)) AS db_total_clicks,
+SUM(IFNULL(total_impressions,0))+SUM(IFNULL(fb_total_impressions,0)) AS db_total_impressions,
+SAFE_DIVIDE(SUM(IFNULL(total_clicks,0))+SUM(IFNULL(fb_total_outbound_clicks,0)) , SUM(IFNULL(total_impressions,0))+SUM(IFNULL(fb_total_impressions,0))) AS db_ctr,
+
+SUM(IFNULL(rc_initial_purchase_event,0))+SUM(IFNULL(rc_non_subscription_purchase_event,0))+IFNULL(sum(rc_trial_started_event),0) as db_purchase,
+
+IFNULL(SAFE_DIVIDE(SUM(db_install) , SUM(IFNULL(total_clicks,0))+SUM(IFNULL(fb_total_outbound_clicks,0)))  ,0) AS db_cr,
+
+IFNULL(
+  SAFE_DIVIDE(((SAFE_MULTIPLY(sum(db_install),1000))), 
+(SUM(IFNULL(total_impressions,0))+SUM(IFNULL(fb_total_impressions,0))))
+,0) AS db_ipm,
+
+IFNULL(SAFE_DIVIDE(sum(rc_initial_purchase_event),sum(total_master_installs)),0) AS db_i2s,
+
+IFNULL(SAFE_DIVIDE(sum(rc_trial_started_event),sum(total_master_installs)),0) AS db_i2t,
+
+IFNULL(SAFE_DIVIDE( 
+  -- total_cost
+  (IFNULL(sum(total_cost),0)) , 
+  
+  SUM(db_install) ),0) AS db_cpi,
+
+IFNULL(
+  SAFE_DIVIDE(
+  -- total_cost
+    IFNULL(sum(total_cost),0) ,
+  -- db_purchase
+ SUM(IFNULL(rc_initial_purchase_event,0))+SUM(IFNULL(rc_non_subscription_purchase_event,0))+IFNULL(sum(rc_trial_started_event),0)
+),0) as db_cpa_total,
+
+IFNULL(
+SAFE_DIVIDE (
+SUM(
+  CASE 
+    WHEN db_operating_system != "Web" THEN total_cost
+    ELSE 0
+  END
+) 
+,
+(
+  SUM(rc_initial_purchase_event) + 
+  SUM(rc_non_subscription_purchase_event)
+)
+)
+,0) AS db_cpa_app,
+
+IFNULL(CASE 
+  WHEN db_operating_system = "Web" THEN SUM(IFNULL(total_impressions,0))+SUM(IFNULL(fb_total_impressions,0))
+  ELSE 0
+END,0) AS db_cpm_web, 
+
+IFNULL(CASE 
+  WHEN db_operating_system = "Web" THEN SUM(IFNULL(total_impressions,0))+SUM(IFNULL(fb_total_impressions,0))
+  ELSE 0
+END,0) AS db_cpm_app, 
+
+
+FROM raw_main_data_with_bases_l2
+GROUP BY ALL

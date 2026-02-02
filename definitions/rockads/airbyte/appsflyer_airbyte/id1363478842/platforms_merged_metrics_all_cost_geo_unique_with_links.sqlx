@@ -1,0 +1,1325 @@
+config {
+  type: "table",
+    bigquery: {
+    partitionBy: "report_date"
+  },
+  database: `${dataform.projectConfig.vars.rockadsProject}`,
+  name: "id1363478842_platforms_merged_metrics_all_cost_geo_unique_with_links",
+  schema: "id1363478842_appsflyer_ds",
+  dependencies: ['id1363478842_tiktok_links_urls', 'id1363478842_activity_union'],
+  tags: ['appsflyer_id1363478842_main']
+}
+WITH raw_main_data as (
+SELECT
+IFNULL(non_rltv.report_date, IFNULL(rltv.install_date,zotlo_rltv.install_date)) AS report_date,
+IFNULL(non_rltv.app_id, NULL) AS app_id,
+IFNULL(non_rltv.geo, IFNULL(rltv.country_code,zotlo_rltv.country_code)) AS geo,
+IFNULL(non_rltv.campaign, IFNULL(rltv.campaign,zotlo_rltv.campaign)) AS campaign,
+IFNULL(non_rltv.adset, IFNULL(rltv.af_adset,zotlo_rltv.af_adset)) AS adset,
+IFNULL(non_rltv.ad, IFNULL(rltv.af_ad,zotlo_rltv.af_ad)) AS ad,
+IFNULL(non_rltv.media_source, IFNULL(rltv.media_source,zotlo_rltv.media_source)) AS media_source,
+IFNULL(non_rltv.appsflyer_os_id, IFNULL(rltv.appsflyer_os_id,zotlo_rltv.appsflyer_os_id)) AS appsflyer_os_id,
+
+
+IFNULL(non_rltv.rc_trial_converted_event, NULL) AS rc_trial_converted_event,
+IFNULL(non_rltv.rc_renewal_event, NULL) AS rc_renewal_event,
+IFNULL(non_rltv.rc_cancellation_event, NULL) AS rc_cancellation_event,
+IFNULL(non_rltv.rc_trial_started_event, NULL) AS rc_trial_started_event,
+IFNULL(non_rltv.rc_trial_cancelled_event, NULL) AS rc_trial_cancelled_event,
+IFNULL(non_rltv.rc_initial_purchase_event, NULL) AS rc_initial_purchase_event,
+IFNULL(non_rltv.rc_non_subscription_purchase_event, NULL) AS rc_non_subscription_purchase_event,
+IFNULL(non_rltv.rc_expiration_event, NULL) AS rc_expiration_event,
+IFNULL(non_rltv.rc_billing_issue_event, NULL) AS rc_billing_issue_event,
+IFNULL(non_rltv.rc_product_change_event, NULL) AS rc_product_change_event,
+IFNULL(non_rltv.af_purchase, NULL) AS af_purchase,
+IFNULL(non_rltv.package_purchase, NULL) AS package_purchase,
+
+IFNULL(non_rltv.unique_rc_trial_converted_event, NULL) AS unique_rc_trial_converted_event,
+IFNULL(non_rltv.unique_rc_renewal_event, NULL) AS unique_rc_renewal_event,
+IFNULL(non_rltv.unique_rc_cancellation_event, NULL) AS unique_rc_cancellation_event,
+IFNULL(non_rltv.unique_rc_trial_started_event, NULL) AS unique_rc_trial_started_event,
+IFNULL(non_rltv.unique_rc_trial_cancelled_event, NULL) AS unique_rc_trial_cancelled_event,
+IFNULL(non_rltv.unique_rc_initial_purchase_event, NULL) AS unique_rc_initial_purchase_event,
+IFNULL(non_rltv.unique_rc_non_subscription_purchase_event, NULL) AS unique_rc_non_subscription_purchase_event,
+IFNULL(non_rltv.unique_rc_expiration_event, NULL) AS unique_rc_expiration_event,
+IFNULL(non_rltv.unique_rc_billing_issue_event, NULL) AS unique_rc_billing_issue_event,
+IFNULL(non_rltv.unique_rc_product_change_event, NULL) AS unique_rc_product_change_event,
+IFNULL(non_rltv.unique_af_purchase, NULL) AS unique_af_purchase,
+IFNULL(non_rltv.unique_package_purchase, NULL) AS unique_package_purchase,
+
+IFNULL(non_rltv.revenue_rc_trial_converted_event, NULL) AS revenue_rc_trial_converted_event,
+IFNULL(non_rltv.revenue_rc_renewal_event, NULL) AS revenue_rc_renewal_event,
+IFNULL(non_rltv.revenue_rc_cancellation_event, NULL) AS revenue_rc_cancellation_event,
+IFNULL(non_rltv.revenue_rc_trial_started_event, NULL) AS revenue_rc_trial_started_event,
+IFNULL(non_rltv.revenue_rc_trial_cancelled_event, NULL) AS revenue_rc_trial_cancelled_event,
+IFNULL(non_rltv.revenue_rc_initial_purchase_event, NULL) AS revenue_rc_initial_purchase_event,
+IFNULL(non_rltv.revenue_rc_non_subscription_purchase_event, NULL) AS revenue_rc_non_subscription_purchase_event,
+IFNULL(non_rltv.revenue_rc_expiration_event, NULL) AS revenue_rc_expiration_event,
+IFNULL(non_rltv.revenue_rc_billing_issue_event, NULL) AS revenue_rc_billing_issue_event,
+IFNULL(non_rltv.revenue_rc_product_change_event, NULL) AS revenue_rc_product_change_event,
+IFNULL(non_rltv.revenue_af_purchase, NULL) AS revenue_af_purchase,
+IFNULL(non_rltv.revenue_package_purchase, NULL) AS revenue_package_purchase,
+
+IFNULL(non_rltv.event_revenue, NULL) AS event_revenue,
+IFNULL(non_rltv.total_cost, NULL) AS total_cost,
+IFNULL(non_rltv.total_clicks, NULL) AS total_clicks,
+IFNULL(non_rltv.total_installs, NULL) AS total_installs,
+IFNULL(non_rltv.total_impressions, NULL) AS total_impressions,
+IFNULL(non_rltv.total_re_attributions, NULL) AS total_re_attributions,
+IFNULL(non_rltv.total_re_engagements, NULL) AS total_re_engagements,
+IFNULL(non_rltv.total_video_completions, NULL) AS total_video_completions,
+IFNULL(non_rltv.total_video_25p_views, NULL) AS total_video_25p_views,
+IFNULL(non_rltv.total_video_50p_views, NULL) AS total_video_50p_views,
+IFNULL(non_rltv.total_video_75p_views, NULL) AS total_video_75p_views,
+IFNULL(non_rltv.fb_total_outbound_clicks, NULL) AS fb_total_outbound_clicks,
+IFNULL(non_rltv.fb_total_impressions, NULL) AS fb_total_impressions,
+IFNULL(non_rltv.fb_total_clicks, NULL) AS fb_total_clicks,
+IFNULL(non_rltv.thumbnail_url, NULL) AS thumbnail_url,
+IFNULL(non_rltv.video_url, NULL) AS video_url,
+IFNULL(non_rltv.total_master_installs, NULL) AS total_master_installs,
+
+IFNULL(non_rltv.activity_event_revenue, NULL) AS activity_event_revenue,
+IFNULL(non_rltv.activity_revenue_paywallShowed, NULL) AS activity_revenue_paywallShowed,
+IFNULL(non_rltv.activity_revenue_paymentInit, NULL) AS activity_revenue_paymentInit,
+IFNULL(non_rltv.activity_revenue_rc_renewal_event, NULL) AS activity_revenue_rc_renewal_event,
+IFNULL(non_rltv.activity_revenue_rc_trial_converted_event, NULL) AS activity_revenue_rc_trial_converted_event,
+IFNULL(non_rltv.activity_revenue_rc_expiration_event, NULL) AS activity_revenue_rc_expiration_event,
+IFNULL(non_rltv.activity_revenue_rc_cancellation_event, NULL) AS activity_revenue_rc_cancellation_event,
+IFNULL(non_rltv.activity_revenue_rc_billing_issue_event, NULL) AS activity_revenue_rc_billing_issue_event,
+IFNULL(non_rltv.activity_revenue_rc_initial_purchase_event, NULL) AS activity_revenue_rc_initial_purchase_event,
+IFNULL(non_rltv.activity_revenue_rc_product_change_event, NULL) AS activity_revenue_rc_product_change_event,
+IFNULL(non_rltv.activity_revenue_rc_trial_started_event, NULL) AS activity_revenue_rc_trial_started_event,
+IFNULL(non_rltv.activity_revenue_rc_trial_cancelled_event, NULL) AS activity_revenue_rc_trial_cancelled_event,
+IFNULL(non_rltv.activity_revenue_WebToAppInstall, NULL) AS activity_revenue_WebToAppInstall,
+IFNULL(non_rltv.activity_revenue_rc_non_subscription_purchase_event, NULL) AS activity_revenue_rc_non_subscription_purchase_event,
+IFNULL(non_rltv.activity_revenue_af_purchase, NULL) AS activity_revenue_af_purchase,
+IFNULL(non_rltv.activity_revenue_package_purchase, NULL) AS activity_revenue_package_purchase,
+
+-- zotlo_* now also from non_rltv
+IFNULL(non_rltv.zotlo_activity_event_revenue, NULL) AS zotlo_activity_event_revenue,
+IFNULL(non_rltv.zotlo_activity_event_count_reactive, NULL) AS zotlo_activity_event_count_reactive,
+IFNULL(non_rltv.zotlo_activity_revenue_reactive, NULL) AS zotlo_activity_revenue_reactive,
+IFNULL(non_rltv.zotlo_activity_event_count_trial_to_paid, NULL) AS zotlo_activity_event_count_trial_to_paid,
+IFNULL(non_rltv.zotlo_activity_revenue_trial_to_paid, NULL) AS zotlo_activity_revenue_trial_to_paid,
+IFNULL(non_rltv.zotlo_activity_event_count_trial, NULL) AS zotlo_activity_event_count_trial,
+IFNULL(non_rltv.zotlo_activity_revenue_trial, NULL) AS zotlo_activity_revenue_trial,
+IFNULL(non_rltv.zotlo_activity_event_count_renewal, NULL) AS zotlo_activity_event_count_renewal,
+IFNULL(non_rltv.zotlo_activity_revenue_renewal, NULL) AS zotlo_activity_revenue_renewal,
+IFNULL(non_rltv.zotlo_activity_event_count_set_quantity, NULL) AS zotlo_activity_event_count_set_quantity,
+IFNULL(non_rltv.zotlo_activity_revenue_set_quantity, NULL) AS zotlo_activity_revenue_set_quantity,
+IFNULL(non_rltv.zotlo_activity_event_count_consumable, NULL) AS zotlo_activity_event_count_consumable,
+IFNULL(non_rltv.zotlo_activity_revenue_consumable, NULL) AS zotlo_activity_revenue_consumable,
+IFNULL(non_rltv.zotlo_activity_event_count_start_paid, NULL) AS zotlo_activity_event_count_start_paid,
+IFNULL(non_rltv.zotlo_activity_revenue_start_paid, NULL) AS zotlo_activity_revenue_start_paid,
+IFNULL(non_rltv.zotlo_activity_event_count_package_upgrate, NULL) AS zotlo_activity_event_count_package_upgrate,
+IFNULL(non_rltv.zotlo_activity_revenue_package_upgrate, NULL) AS zotlo_activity_revenue_package_upgrate,
+IFNULL(non_rltv.zotlo_activity_event_count_epin, NULL) AS zotlo_activity_event_count_epin,
+IFNULL(non_rltv.zotlo_activity_revenue_epin, NULL) AS zotlo_activity_revenue_epin,
+IFNULL(non_rltv.zotlo_activity_event_count_package_upgrade, NULL) AS zotlo_activity_event_count_package_upgrade,
+IFNULL(non_rltv.zotlo_activity_revenue_package_upgrade, NULL) AS zotlo_activity_revenue_package_upgrade,
+
+IFNULL(non_rltv.zotlo_overview_event_revenue, NULL) AS zotlo_overview_event_revenue,
+IFNULL(non_rltv.zotlo_overview_event_count_reactive, NULL) AS zotlo_overview_event_count_reactive,
+IFNULL(non_rltv.zotlo_overview_revenue_reactive, NULL) AS zotlo_overview_revenue_reactive,
+IFNULL(non_rltv.zotlo_overview_event_count_trial_to_paid, NULL) AS zotlo_overview_event_count_trial_to_paid,
+IFNULL(non_rltv.zotlo_overview_revenue_trial_to_paid, NULL) AS zotlo_overview_revenue_trial_to_paid,
+IFNULL(non_rltv.zotlo_overview_event_count_trial, NULL) AS zotlo_overview_event_count_trial,
+IFNULL(non_rltv.zotlo_overview_revenue_trial, NULL) AS zotlo_overview_revenue_trial,
+IFNULL(non_rltv.zotlo_overview_event_count_renewal, NULL) AS zotlo_overview_event_count_renewal,
+IFNULL(non_rltv.zotlo_overview_revenue_renewal, NULL) AS zotlo_overview_revenue_renewal,
+IFNULL(non_rltv.zotlo_overview_event_count_set_quantity, NULL) AS zotlo_overview_event_count_set_quantity,
+IFNULL(non_rltv.zotlo_overview_revenue_set_quantity, NULL) AS zotlo_overview_revenue_set_quantity,
+IFNULL(non_rltv.zotlo_overview_event_count_consumable, NULL) AS zotlo_overview_event_count_consumable,
+IFNULL(non_rltv.zotlo_overview_revenue_consumable, NULL) AS zotlo_overview_revenue_consumable,
+IFNULL(non_rltv.zotlo_overview_event_count_start_paid, NULL) AS zotlo_overview_event_count_start_paid,
+IFNULL(non_rltv.zotlo_overview_revenue_start_paid, NULL) AS zotlo_overview_revenue_start_paid,
+IFNULL(non_rltv.zotlo_overview_event_count_package_upgrate, NULL) AS zotlo_overview_event_count_package_upgrate,
+IFNULL(non_rltv.zotlo_overview_revenue_package_upgrate, NULL) AS zotlo_overview_revenue_package_upgrate,
+IFNULL(non_rltv.zotlo_overview_event_count_epin, NULL) AS zotlo_overview_event_count_epin,
+IFNULL(non_rltv.zotlo_overview_revenue_epin, NULL) AS zotlo_overview_revenue_epin,
+IFNULL(non_rltv.zotlo_overview_event_count_package_upgrade, NULL) AS zotlo_overview_event_count_package_upgrade,
+IFNULL(non_rltv.zotlo_overview_revenue_package_upgrade, NULL) AS zotlo_overview_revenue_package_upgrade,
+
+-- normal D-columns from rltv
+IFNULL(rltv.d0, NULL) AS d0,
+IFNULL(rltv.d1, NULL) AS d1,
+IFNULL(rltv.d3, NULL) AS d3,
+IFNULL(rltv.d7, NULL) AS d7,
+IFNULL(rltv.d15, NULL) AS d15,
+IFNULL(rltv.d30, NULL) AS d30,
+IFNULL(rltv.d60, NULL) AS d60,
+IFNULL(rltv.d90, NULL) AS d90,
+IFNULL(rltv.d120, NULL) AS d120,
+IFNULL(rltv.d150, NULL) AS d150,
+IFNULL(rltv.d180, NULL) AS d180,
+IFNULL(rltv.d210, NULL) AS d210,
+IFNULL(rltv.d240, NULL) AS d240,
+IFNULL(rltv.d270, NULL) AS d270,
+IFNULL(rltv.d300, NULL) AS d300,
+IFNULL(rltv.d330, NULL) AS d330,
+IFNULL(rltv.d360, NULL) AS d360,
+IFNULL(rltv.ltv, NULL) AS ltv,
+
+-- zotlo D-columns from zotlo_rltv
+IFNULL(zotlo_rltv.d0, NULL) AS zotlo_d0,
+IFNULL(zotlo_rltv.d1, NULL) AS zotlo_d1,
+IFNULL(zotlo_rltv.d3, NULL) AS zotlo_d3,
+IFNULL(zotlo_rltv.d7, NULL) AS zotlo_d7,
+IFNULL(zotlo_rltv.d15, NULL) AS zotlo_d15,
+IFNULL(zotlo_rltv.d30, NULL) AS zotlo_d30,
+IFNULL(zotlo_rltv.d60, NULL) AS zotlo_d60,
+IFNULL(zotlo_rltv.d90, NULL) AS zotlo_d90,
+IFNULL(zotlo_rltv.d120, NULL) AS zotlo_d120,
+IFNULL(zotlo_rltv.d150, NULL) AS zotlo_d150,
+IFNULL(zotlo_rltv.d180, NULL) AS zotlo_d180,
+IFNULL(zotlo_rltv.d210, NULL) AS zotlo_d210,
+IFNULL(zotlo_rltv.d240, NULL) AS zotlo_d240,
+IFNULL(zotlo_rltv.d270, NULL) AS zotlo_d270,
+IFNULL(zotlo_rltv.d300, NULL) AS zotlo_d300,
+IFNULL(zotlo_rltv.d330, NULL) AS zotlo_d330,
+IFNULL(zotlo_rltv.d360, NULL) AS zotlo_d360,
+IFNULL(zotlo_rltv.ltv, NULL) AS zotlo_ltv
+
+FROM (
+
+SELECT
+    IFNULL(ltv.report_date, activity.report_date) AS report_date,
+    'id1363478842' as app_id,
+    IFNULL(ltv.geo, activity.geo) as geo,
+    IFNULL(ltv.campaign, activity.campaign) as campaign,
+    IFNULL(ltv.adset, activity.af_adset) as adset,
+    IFNULL(ltv.ad, activity.ad) as ad,
+    IFNULL(ltv.media_source, activity.media_source) as media_source,
+    IFNULL(ltv.appsflyer_os_id, activity.appsflyer_os_id) as appsflyer_os_id,
+    rc_trial_converted_event,
+    rc_renewal_event,
+    rc_cancellation_event,
+    rc_trial_started_event,
+    rc_trial_cancelled_event,
+    rc_initial_purchase_event,
+    rc_non_subscription_purchase_event,
+    rc_expiration_event,
+    rc_billing_issue_event,
+    rc_product_change_event,
+    af_purchase,
+    package_purchase,
+    unique_rc_trial_converted_event,
+    unique_rc_renewal_event,
+    unique_rc_cancellation_event,
+    unique_rc_trial_started_event,
+    unique_rc_trial_cancelled_event,
+    unique_rc_initial_purchase_event,
+    unique_rc_non_subscription_purchase_event,
+    unique_rc_expiration_event,
+    unique_rc_billing_issue_event,
+    unique_rc_product_change_event,
+    unique_af_purchase,
+    unique_package_purchase,
+    revenue_rc_trial_converted_event,
+    revenue_rc_renewal_event,
+    revenue_rc_cancellation_event,
+    revenue_rc_trial_started_event,
+    revenue_rc_trial_cancelled_event,
+    revenue_rc_initial_purchase_event,
+    revenue_rc_non_subscription_purchase_event,
+    revenue_rc_expiration_event,
+    revenue_rc_billing_issue_event,
+    revenue_rc_product_change_event,
+    revenue_af_purchase,
+    revenue_package_purchase,
+    event_revenue,
+    total_cost,
+    total_clicks,
+    total_installs,
+    total_impressions,
+    total_re_attributions,
+    total_re_engagements,
+    total_video_completions,
+    total_video_25p_views,
+    total_video_50p_views,
+    total_video_75p_views,
+    fb_total_outbound_clicks,
+    fb_total_impressions,
+    fb_total_clicks,
+    thumbnail_url,
+    video_url,
+    total_master_installs,
+    activity.activity_event_revenue,
+    activity.activity_revenue_paywallShowed,
+    activity.activity_revenue_paymentInit,
+    activity.activity_revenue_rc_renewal_event,
+    activity.activity_revenue_rc_trial_converted_event,
+    activity.activity_revenue_rc_expiration_event,
+    activity.activity_revenue_rc_cancellation_event,
+    activity.activity_revenue_rc_billing_issue_event,
+    activity.activity_revenue_rc_initial_purchase_event,
+    activity.activity_revenue_rc_product_change_event,
+    activity.activity_revenue_rc_trial_started_event,
+    activity.activity_revenue_rc_trial_cancelled_event,
+    activity.activity_revenue_WebToAppInstall,
+    activity.activity_revenue_rc_non_subscription_purchase_event,
+    activity.activity_revenue_af_purchase,
+    activity.activity_revenue_package_purchase,
+
+    NULL as zotlo_activity_event_revenue,
+    NULL AS zotlo_activity_event_count_reactive,
+    NULL AS zotlo_activity_revenue_reactive,
+    NULL AS zotlo_activity_event_count_trial_to_paid,
+    NULL AS zotlo_activity_revenue_trial_to_paid,
+    NULL AS zotlo_activity_event_count_trial,
+    NULL AS zotlo_activity_revenue_trial,
+    NULL AS zotlo_activity_event_count_renewal,
+    NULL AS zotlo_activity_revenue_renewal,
+    NULL AS zotlo_activity_event_count_set_quantity,
+    NULL AS zotlo_activity_revenue_set_quantity,
+    NULL AS zotlo_activity_event_count_consumable,
+    NULL AS zotlo_activity_revenue_consumable,
+    NULL AS zotlo_activity_event_count_start_paid,
+    NULL AS zotlo_activity_revenue_start_paid,
+    NULL AS zotlo_activity_event_count_package_upgrate,
+    NULL AS zotlo_activity_revenue_package_upgrate,
+    NULL AS zotlo_activity_event_count_epin,
+    NULL AS zotlo_activity_revenue_epin,
+    NULL AS zotlo_activity_event_count_package_upgrade,
+    NULL AS zotlo_activity_revenue_package_upgrade,
+
+    NULL  as zotlo_overview_event_revenue,
+    NULL AS zotlo_overview_event_count_reactive,
+    NULL AS zotlo_overview_revenue_reactive,
+    NULL AS zotlo_overview_event_count_trial_to_paid,
+    NULL AS zotlo_overview_revenue_trial_to_paid,
+    NULL AS zotlo_overview_event_count_trial,
+    NULL AS zotlo_overview_revenue_trial,
+    NULL AS zotlo_overview_event_count_renewal,
+    NULL AS zotlo_overview_revenue_renewal,
+    NULL AS zotlo_overview_event_count_set_quantity,
+    NULL AS zotlo_overview_revenue_set_quantity,
+    NULL AS zotlo_overview_event_count_consumable,
+    NULL AS zotlo_overview_revenue_consumable,
+    NULL AS zotlo_overview_event_count_start_paid,
+    NULL AS zotlo_overview_revenue_start_paid,
+    NULL AS zotlo_overview_event_count_package_upgrate,
+    NULL AS zotlo_overview_revenue_package_upgrate,
+    NULL AS zotlo_overview_event_count_epin,
+    NULL AS zotlo_overview_revenue_epin,
+    NULL AS zotlo_overview_event_count_package_upgrade,
+    NULL AS zotlo_overview_revenue_package_upgrade,
+
+FROM (
+
+SELECT
+    IFNULL(main.report_date, master.install_time) AS report_date,
+    'id1363478842' as app_id,
+    IFNULL(main.geo, master.geo) as geo,
+    IFNULL(main.campaign, master.campaign) as campaign,
+    IFNULL(main.adset, master.adset) as adset,
+    IFNULL(main.ad, master.ad) as ad,
+    IFNULL(main.media_source, master.media_source) as media_source,
+    IFNULL(main.appsflyer_os_id, master.appsflyer_app_id) as appsflyer_os_id,
+    main.rc_trial_converted_event,
+    main.rc_renewal_event,
+    main.rc_cancellation_event,
+    main.rc_trial_started_event,
+    main.rc_trial_cancelled_event,
+    main.rc_initial_purchase_event,
+    main.rc_non_subscription_purchase_event,
+    main.rc_expiration_event,
+    main.rc_billing_issue_event,
+    main.rc_product_change_event,
+    main.af_purchase,
+    main.package_purchase,
+    main.unique_rc_trial_converted_event,
+    main.unique_rc_renewal_event,
+    main.unique_rc_cancellation_event,
+    main.unique_rc_trial_started_event,
+    main.unique_rc_trial_cancelled_event,
+    main.unique_rc_initial_purchase_event,
+    main.unique_rc_non_subscription_purchase_event,
+    main.unique_rc_expiration_event,
+    main.unique_rc_billing_issue_event,
+    main.unique_rc_product_change_event,
+    main.unique_af_purchase,
+    main.unique_package_purchase,
+    main.revenue_rc_trial_converted_event,
+    main.revenue_rc_renewal_event,
+    main.revenue_rc_cancellation_event,
+    main.revenue_rc_trial_started_event,
+    main.revenue_rc_trial_cancelled_event,
+    main.revenue_rc_initial_purchase_event,
+    main.revenue_rc_non_subscription_purchase_event,
+    main.revenue_rc_expiration_event,
+    main.revenue_rc_billing_issue_event,
+    main.revenue_rc_product_change_event,
+    main.revenue_af_purchase,
+    main.revenue_package_purchase,
+    main.event_revenue,
+    main.total_cost,
+    main.total_clicks,
+    main.total_installs,
+    main.total_impressions,
+    main.total_re_attributions,
+    main.total_re_engagements,
+    main.total_video_completions,
+    main.total_video_25p_views,
+    main.total_video_50p_views,
+    main.total_video_75p_views,
+    main.fb_total_outbound_clicks,
+    main.fb_total_impressions,
+    main.fb_total_clicks,
+    main.thumbnail_url,
+    main.video_url,
+    master.total_master_installs
+
+FROM (
+SELECT
+  main.*,
+  IFNULL(links.thumbnail_url, tiktok_links.thumbnail_url) as thumbnail_url,
+  IFNULL(links.video_url, tiktok_links.video_url) as video_url
+FROM
+  `${dataform.projectConfig.vars.rockadsProject}.id1363478842_appsflyer_ds.id1363478842_platforms_merged_metrics_all_cost_geo_unique` main
+LEFT JOIN
+  `${dataform.projectConfig.vars.rockadsProject}.id1363478842_appsflyer_ds.id1363478842_facebook_links_urls` links
+ON
+  main.app_id=links.app_id
+  AND main.ad=links.ad
+  AND IF(main.media_source = 'facebook', 'Facebook Ads', main.media_source) = links.media_source
+LEFT JOIN
+  `${dataform.projectConfig.vars.rockadsProject}.id1363478842_appsflyer_ds.id1363478842_tiktok_links_urls` tiktok_links
+ON
+  main.app_id=tiktok_links.app_id
+  AND main.ad=tiktok_links.ad
+  AND IF(main.media_source = 'tiktok', 'tiktokglobal_int', main.media_source) = tiktok_links.media_source
+  
+UNION ALL
+SELECT
+  report_date,
+  app_id,
+  geo,
+  campaign,
+  adset,
+  ad,
+  media_source,
+  appsflyer_os_id,
+  rc_trial_converted_event,
+  rc_renewal_event,
+  rc_cancellation_event,
+  rc_trial_started_event,
+  rc_trial_cancelled_event,
+  rc_initial_purchase_event,
+  rc_non_subscription_purchase_event,
+  rc_expiration_event,
+  rc_billing_issue_event,
+  rc_product_change_event,
+  af_purchase,
+  package_purchase,
+  unique_rc_trial_converted_event,
+  unique_rc_renewal_event,
+  unique_rc_cancellation_event,
+  unique_rc_trial_started_event,
+  unique_rc_trial_cancelled_event,
+  unique_rc_initial_purchase_event,
+  unique_rc_non_subscription_purchase_event,
+  unique_rc_expiration_event,
+  unique_rc_billing_issue_event,
+  unique_rc_product_change_event,
+  unique_af_purchase,
+  unique_package_purchase,
+  revenue_rc_trial_converted_event,
+  revenue_rc_renewal_event,
+  revenue_rc_cancellation_event,
+  revenue_rc_trial_started_event,
+  revenue_rc_trial_cancelled_event,
+  revenue_rc_initial_purchase_event,
+  revenue_rc_non_subscription_purchase_event,
+  revenue_rc_expiration_event,
+  revenue_rc_billing_issue_event,
+  revenue_rc_product_change_event,
+  revenue_af_purchase,
+  revenue_package_purchase,
+  event_revenue,
+  total_cost,
+  total_clicks,
+  total_installs,
+  total_impressions,
+  total_re_attributions,
+  total_re_engagements,
+  total_video_completions,
+  total_video_25p_views,
+  total_video_50p_views,
+  total_video_75p_views,
+  fb_total_outbound_clicks,
+  fb_total_impressions,
+  fb_total_clicks,
+  thumbnail_url,
+  video_url
+FROM
+  `${dataform.projectConfig.vars.rockadsProject}.id1363478842_appsflyer_ds.id1363478842_organic_combined_metrics_unique_dm`
+) main
+
+# Master Metrics Part (join)
+FULL OUTER JOIN (
+  SELECT
+    install_time,
+    REPLACE(appsflyer_app_id, '.', '_') appsflyer_app_id,
+    campaign,
+    ad,
+    adset,
+    geo,
+    media_source,
+    SUM(installs) AS total_master_installs
+  FROM
+    `rockads-thirdparty.all_appsflyer_ds.all_apps_master_metrics`
+  WHERE
+    install_time >= "2025-01-01"
+    AND appsflyer_app_id IN ('id1363478842', 'com.positivise.moyra')
+    AND geo != 'None'
+    AND installs > 0
+  GROUP BY
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7) master
+ON
+  main.report_date=master.install_time
+  AND main.appsflyer_os_id=master.appsflyer_app_id
+  AND main.campaign=master.campaign
+  AND main.adset=master.adset
+  AND main.ad=master.ad
+  AND main.geo=master.geo
+  AND main.media_source=master.media_source
+  
+) ltv
+# Activity Part
+
+FULL OUTER JOIN rockads-thirdparty.id1363478842_appsflyer_ds.id1363478842_activity_union AS activity
+ON
+  ltv.report_date=activity.report_date
+  AND ltv.app_id=activity.app_id
+  AND ltv.geo=activity.geo
+  AND ltv.campaign=activity.campaign
+  AND ltv.adset=activity.af_adset
+  AND ltv.ad=activity.ad
+  AND ltv.media_source=activity.media_source
+  AND ltv.appsflyer_os_id=activity.appsflyer_os_id
+
+UNION ALL
+SELECT
+    z.report_date,
+    'id1363478842' as app_id,
+    z.country_code AS geo,
+    z.campaign_name AS campaign,
+    IFNULL(z.ad_group_name, '') AS adset,
+    IFNULL(z.ad_name, '')  AS ad,
+    CONCAT('zotlo-', IF(z.media_source is NULL,'',z.media_source)) AS media_source,
+    NULL AS appsflyer_os_id,
+    NULL AS rc_trial_converted_event,
+    NULL AS rc_renewal_event,
+    NULL AS rc_cancellation_event,
+    NULL AS rc_trial_started_event,
+    NULL AS rc_trial_cancelled_event,
+    NULL AS rc_initial_purchase_event,
+    NULL AS rc_non_subscription_purchase_event,
+    NULL AS rc_expiration_event,
+    NULL AS rc_billing_issue_event,
+    NULL AS rc_product_change_event,
+    NULL AS af_purchase,
+    NULL AS package_purchase,
+    NULL AS unique_rc_trial_converted_event,
+    NULL AS unique_rc_renewal_event,
+    NULL AS unique_rc_cancellation_event,
+    NULL AS unique_rc_trial_started_event,
+    NULL AS unique_rc_trial_cancelled_event,
+    NULL AS unique_rc_initial_purchase_event,
+    NULL AS unique_rc_non_subscription_purchase_event,
+    NULL AS unique_rc_expiration_event,
+    NULL AS unique_rc_billing_issue_event,
+    NULL AS unique_rc_product_change_event,
+    NULL AS unique_af_purchase,
+    NULL AS unique_package_purchase,
+    NULL AS revenue_rc_trial_converted_event,
+    NULL AS revenue_rc_renewal_event,
+    NULL AS revenue_rc_cancellation_event,
+    NULL AS revenue_rc_trial_started_event,
+    NULL AS revenue_rc_trial_cancelled_event,
+    NULL AS revenue_rc_initial_purchase_event,
+    NULL AS revenue_rc_non_subscription_purchase_event,
+    NULL AS revenue_rc_expiration_event,
+    NULL AS revenue_rc_billing_issue_event,
+    NULL AS revenue_rc_product_change_event,
+    NULL AS revenue_af_purchase,
+    NULL AS revenue_package_purchase,
+    NULL AS event_revenue,
+    NULL AS total_cost,
+    NULL AS total_clicks,
+    NULL AS total_installs,
+    NULL AS total_impressions,
+    NULL AS total_re_attributions,
+    NULL AS total_re_engagements,
+    NULL AS total_video_completions,
+    NULL AS total_video_25p_views,
+    NULL AS total_video_50p_views,
+    NULL AS total_video_75p_views,
+    NULL AS fb_total_outbound_clicks,
+    NULL AS fb_total_impressions,
+    NULL AS fb_total_clicks,
+    NULL AS thumbnail_url,
+    NULL AS video_url,
+    NULL AS total_master_installs,
+    NULL AS activity_event_revenue,
+    NULL AS activity_revenue_paywallShowed,
+    NULL AS activity_revenue_paymentInit,
+    NULL AS activity_revenue_rc_renewal_event,
+    NULL AS activity_revenue_rc_trial_converted_event,
+    NULL AS activity_revenue_rc_expiration_event,
+    NULL AS activity_revenue_rc_cancellation_event,
+    NULL AS activity_revenue_rc_billing_issue_event,
+    NULL AS activity_revenue_rc_initial_purchase_event,
+    NULL AS activity_revenue_rc_product_change_event,
+    NULL AS activity_revenue_rc_trial_started_event,
+    NULL AS activity_revenue_rc_trial_cancelled_event,
+    NULL AS activity_revenue_WebToAppInstall,
+    NULL AS activity_revenue_rc_non_subscription_purchase_event,
+    NULL AS activity_revenue_af_purchase,
+    NULL AS activity_revenue_package_purchase,
+
+
+    SUM(z.zotlo_activity_event_revenue) as zotlo_activity_event_revenue,
+    SUM(activity_event_count_reactive) zotlo_activity_event_count_reactive,
+    SUM(activity_revenue_reactive) zotlo_activity_revenue_reactive,
+    SUM(activity_event_count_trial_to_paid) zotlo_activity_event_count_trial_to_paid,
+    SUM(activity_revenue_trial_to_paid) zotlo_activity_revenue_trial_to_paid,
+    SUM(activity_event_count_trial) zotlo_activity_event_count_trial,
+    SUM(activity_revenue_trial) zotlo_activity_revenue_trial,
+    SUM(activity_event_count_renewal) zotlo_activity_event_count_renewal,
+    SUM(activity_revenue_renewal) zotlo_activity_revenue_renewal,
+    SUM(activity_event_count_set_quantity) zotlo_activity_event_count_set_quantity ,
+    SUM(activity_revenue_set_quantity) zotlo_activity_revenue_set_quantity ,
+    SUM(activity_event_count_consumable) zotlo_activity_event_count_consumable,
+    SUM(activity_revenue_consumable) zotlo_activity_revenue_consumable,
+    SUM(activity_event_count_start_paid) zotlo_activity_event_count_start_paid,
+    SUM(activity_revenue_start_paid) zotlo_activity_revenue_start_paid,
+    SUM(activity_event_count_package_upgrate) zotlo_activity_event_count_package_upgrate,
+    SUM(activity_revenue_package_upgrate) zotlo_activity_revenue_package_upgrate,
+    SUM(activity_event_count_epin) zotlo_activity_event_count_epin,
+    SUM(activity_revenue_epin) zotlo_activity_revenue_epin,
+    SUM(activity_event_count_package_upgrade) zotlo_activity_event_count_package_upgrade,
+    SUM(activity_revenue_package_upgrade) zotlo_activity_revenue_package_upgrade,
+
+    NULL  as zotlo_overview_event_revenue,
+    NULL AS zotlo_overview_event_count_reactive,
+    NULL AS zotlo_overview_revenue_reactive,
+    NULL AS zotlo_overview_event_count_trial_to_paid,
+    NULL AS zotlo_overview_revenue_trial_to_paid,
+    NULL AS zotlo_overview_event_count_trial,
+    NULL AS zotlo_overview_revenue_trial,
+    NULL AS zotlo_overview_event_count_renewal,
+    NULL AS zotlo_overview_revenue_renewal,
+    NULL AS zotlo_overview_event_count_set_quantity,
+    NULL AS zotlo_overview_revenue_set_quantity,
+    NULL AS zotlo_overview_event_count_consumable,
+    NULL AS zotlo_overview_revenue_consumable,
+    NULL AS zotlo_overview_event_count_start_paid,
+    NULL AS zotlo_overview_revenue_start_paid,
+    NULL AS zotlo_overview_event_count_package_upgrate,
+    NULL AS zotlo_overview_revenue_package_upgrate,
+    NULL AS zotlo_overview_event_count_epin,
+    NULL AS zotlo_overview_revenue_epin,
+    NULL AS zotlo_overview_event_count_package_upgrade,
+    NULL AS zotlo_overview_revenue_package_upgrade,
+
+FROM (
+SELECT
+report_date,
+    'id1363478842' as app_id,
+    IF(country_code='GB', 'UK', country_code) AS country_code,
+    campaign_name,
+    ad_group_name,
+    ad_name,
+    media_source,
+    SUM(amount) as zotlo_activity_event_revenue
+FROM
+  `rockads-thirdparty.zotlo_marketing_ds.ads_purchase_refund_combined_zotlo`
+WHERE
+  app_name IN
+   ('Moyra', 'Moyra Web')
+GROUP BY ALL
+ ) z
+
+LEFT JOIN (
+
+
+WITH main_raw_data AS (SELECT  campaign_name,'id1363478842' AS app_id, ad_group_name ,  ad_name, media_source, event_name,
+IF(country_code='GB', 'UK', country_code) AS country_code,
+amount,
+event_count,
+DATE(report_date) as event_date,
+FROM rockads-thirdparty.zotlo_marketing_ds.ads_purchase_refund_combined_zotlo
+WHERE app_name IN
+   ('Moyra', 'Moyra Web')
+
+)
+SELECT * FROM (
+SELECT campaign_name, app_id, ad_group_name, ad_name, IF(country_code='GB', 'UK', country_code) AS country_code,
+media_source, event_name,
+event_date,
+SUM(event_count) AS event_count,
+sum(CAST(amount AS FLOAT64)) AS revenue,
+FROM main_raw_data
+GROUP BY ALL
+)
+PIVOT (
+  MAX(event_count) as activity_event_count,
+  MAX(revenue)  as activity_revenue FOR event_name IN (
+    'reactive',
+    'trial_to_paid',
+    'trial',
+    'renewal',
+    'set_quantity',
+    'consumable',
+    'start_paid',
+    'package_upgrate',
+    'epin',
+    'package_upgrade'
+  )
+)
+
+
+)ec
+
+ON
+z.report_date = ec.event_date AND
+z.country_code = ec.country_code AND
+IFNULL(z.campaign_name,'') = IFNULL(ec.campaign_name,'')  AND
+IFNULL(z.ad_name,'') = IFNULL(ec.ad_name,'') AND
+IFNULL(z.ad_group_name,'') = IFNULL(ec.ad_group_name,'')  AND
+CONCAT('zotlo-', IF(z.media_source is NULL,'',z.media_source)) = CONCAT('zotlo-', IF(ec.media_source is NULL,'',ec.media_source))
+GROUP BY ALL
+
+# Overview Zotlo
+
+UNION ALL
+SELECT
+    z.report_date,
+    'id1363478842' as app_id,
+    z.country_code AS geo,
+    z.campaign_name AS campaign,
+    IFNULL(z.ad_group_name, '') AS adset,
+    IFNULL(z.ad_name, '')  AS ad,
+    CONCAT('zotlo-', IF(z.media_source is NULL,'',z.media_source)) AS media_source,
+    NULL AS appsflyer_os_id,
+   NULL AS rc_trial_converted_event,
+    NULL AS rc_renewal_event,
+    NULL AS rc_cancellation_event,
+    NULL AS rc_trial_started_event,
+    NULL AS rc_trial_cancelled_event,
+    NULL AS rc_initial_purchase_event,
+    NULL AS rc_non_subscription_purchase_event,
+    NULL AS rc_expiration_event,
+    NULL AS rc_billing_issue_event,
+    NULL AS rc_product_change_event,
+    NULL AS af_purchase,
+    NULL AS package_purchase,
+    NULL AS unique_rc_trial_converted_event,
+    NULL AS unique_rc_renewal_event,
+    NULL AS unique_rc_cancellation_event,
+    NULL AS unique_rc_trial_started_event,
+    NULL AS unique_rc_trial_cancelled_event,
+    NULL AS unique_rc_initial_purchase_event,
+    NULL AS unique_rc_non_subscription_purchase_event,
+    NULL AS unique_rc_expiration_event,
+    NULL AS unique_rc_billing_issue_event,
+    NULL AS unique_rc_product_change_event,
+    NULL AS unique_af_purchase,
+    NULL AS unique_package_purchase,
+    NULL AS revenue_rc_trial_converted_event,
+    NULL AS revenue_rc_renewal_event,
+    NULL AS revenue_rc_cancellation_event,
+    NULL AS revenue_rc_trial_started_event,
+    NULL AS revenue_rc_trial_cancelled_event,
+    NULL AS revenue_rc_initial_purchase_event,
+    NULL AS revenue_rc_non_subscription_purchase_event,
+    NULL AS revenue_rc_expiration_event,
+    NULL AS revenue_rc_billing_issue_event,
+    NULL AS revenue_rc_product_change_event,
+    NULL AS revenue_af_purchase,
+    NULL AS revenue_package_purchase,
+    NULL AS event_revenue,
+    NULL AS total_cost,
+    NULL AS total_clicks,
+    NULL AS total_installs,
+    NULL AS total_impressions,
+    NULL AS total_re_attributions,
+    NULL AS total_re_engagements,
+    NULL AS total_video_completions,
+    NULL AS total_video_25p_views,
+    NULL AS total_video_50p_views,
+    NULL AS total_video_75p_views,
+    NULL AS fb_total_outbound_clicks,
+    NULL AS fb_total_impressions,
+    NULL AS fb_total_clicks,
+    NULL AS thumbnail_url,
+    NULL AS video_url,
+    NULL AS total_master_installs,
+    NULL AS activity_event_revenue,
+    NULL AS activity_revenue_paywallShowed,
+    NULL AS activity_revenue_paymentInit,
+    NULL AS activity_revenue_rc_renewal_event,
+    NULL AS activity_revenue_rc_trial_converted_event,
+    NULL AS activity_revenue_rc_expiration_event,
+    NULL AS activity_revenue_rc_cancellation_event,
+    NULL AS activity_revenue_rc_billing_issue_event,
+    NULL AS activity_revenue_rc_initial_purchase_event,
+    NULL AS activity_revenue_rc_product_change_event,
+    NULL AS activity_revenue_rc_trial_started_event,
+    NULL AS activity_revenue_rc_trial_cancelled_event,
+    NULL AS activity_revenue_WebToAppInstall,
+    NULL AS activity_revenue_rc_non_subscription_purchase_event,
+    NULL AS activity_revenue_af_purchase,
+    NULL AS activity_revenue_package_purchase,
+
+
+    NULL  as zotlo_activity_event_revenue,
+    NULL AS zotlo_activity_event_count_reactive,
+    NULL AS zotlo_activity_revenue_reactive,
+    NULL AS zotlo_activity_event_count_trial_to_paid,
+    NULL AS zotlo_activity_revenue_trial_to_paid,
+    NULL AS zotlo_activity_event_count_trial,
+    NULL AS zotlo_activity_revenue_trial,
+    NULL AS zotlo_activity_event_count_renewal,
+    NULL AS zotlo_activity_revenue_renewal,
+    NULL AS zotlo_activity_event_count_set_quantity,
+    NULL AS zotlo_activity_revenue_set_quantity,
+    NULL AS zotlo_activity_event_count_consumable,
+    NULL AS zotlo_activity_revenue_consumable,
+    NULL AS zotlo_activity_event_count_start_paid,
+    NULL AS zotlo_activity_revenue_start_paid,
+    NULL AS zotlo_activity_event_count_package_upgrate,
+    NULL AS zotlo_activity_revenue_package_upgrate,
+    NULL AS zotlo_activity_event_count_epin,
+    NULL AS zotlo_activity_revenue_epin,
+    NULL AS zotlo_activity_event_count_package_upgrade,
+    NULL AS zotlo_activity_revenue_package_upgrade,
+
+    SUM(z.zotlo_overview_event_revenue) as zotlo_overview_event_revenue,
+    SUM(overview_event_count_reactive) zotlo_overview_event_count_reactive,
+    SUM(overview_revenue_reactive) zotlo_overview_revenue_reactive,
+    SUM(overview_event_count_trial_to_paid) zotlo_overview_event_count_trial_to_paid,
+    SUM(overview_revenue_trial_to_paid) zotlo_overview_revenue_trial_to_paid,
+    SUM(overview_event_count_trial) zotlo_overview_event_count_trial,
+    SUM(overview_revenue_trial) zotlo_overview_revenue_trial,
+    SUM(overview_event_count_renewal) zotlo_overview_event_count_renewal,
+    SUM(overview_revenue_renewal) zotlo_overview_revenue_renewal,
+    SUM(overview_event_count_set_quantity) zotlo_overview_event_count_set_quantity ,
+    SUM(overview_revenue_set_quantity) zotlo_overview_revenue_set_quantity ,
+    SUM(overview_event_count_consumable) zotlo_overview_event_count_consumable,
+    SUM(overview_revenue_consumable) zotlo_overview_revenue_consumable,
+    SUM(overview_event_count_start_paid) zotlo_overview_event_count_start_paid,
+    SUM(overview_revenue_start_paid) zotlo_overview_revenue_start_paid,
+    SUM(overview_event_count_package_upgrate) zotlo_overview_event_count_package_upgrate,
+    SUM(overview_revenue_package_upgrate) zotlo_overview_revenue_package_upgrate,
+    SUM(overview_event_count_epin) zotlo_overview_event_count_epin,
+    SUM(overview_revenue_epin) zotlo_overview_revenue_epin,
+    SUM(overview_event_count_package_upgrade) zotlo_overview_event_count_package_upgrade,
+    SUM(overview_revenue_package_upgrade) zotlo_overview_revenue_package_upgrade
+FROM (
+SELECT
+report_date,
+    'id1363478842' as app_id,
+    IF(country_code='GB', 'UK', country_code) AS country_code,
+    campaign_name,
+    ad_group_name,
+    ad_name,
+    media_source,
+    SUM(amount) as zotlo_overview_event_revenue,
+
+FROM
+  `rockads-thirdparty.zotlo_marketing_ds.overview_ads_purchase_refund_combined_zotlo`
+
+
+WHERE
+  app_name IN
+   ('Moyra', 'Moyra Web')
+GROUP BY ALL
+) z
+LEFT JOIN (
+
+
+WITH main_raw_data AS (SELECT  campaign_name,'id1363478842' AS app_id, ad_group_name ,  ad_name, media_source, event_name,
+IF(country_code='GB', 'UK', country_code) AS country_code,
+amount,
+event_count,
+DATE(report_date) as event_date,
+FROM rockads-thirdparty.zotlo_marketing_ds.overview_ads_purchase_refund_combined_zotlo
+WHERE app_name IN
+   ('Moyra', 'Moyra Web')
+
+)
+SELECT * FROM (
+SELECT campaign_name, app_id, ad_group_name, ad_name, IF(country_code='GB', 'UK', country_code) AS country_code,
+media_source, event_name,
+event_date,
+SUM(event_count) AS event_count,
+sum(CAST(amount AS FLOAT64)) AS revenue,
+FROM main_raw_data
+GROUP BY ALL
+)
+PIVOT (
+  MAX(event_count) as overview_event_count,
+  MAX(revenue)  as overview_revenue FOR event_name IN (
+    'reactive',
+    'trial_to_paid',
+    'trial',
+    'renewal',
+    'set_quantity',
+    'consumable',
+    'start_paid',
+    'package_upgrate',
+    'epin',
+    'package_upgrade'
+  )
+)
+
+
+)ec
+
+ON
+z.report_date = ec.event_date AND
+z.country_code = ec.country_code AND
+IFNULL(z.campaign_name,'') = IFNULL(ec.campaign_name,'') AND
+IFNULL(z.ad_name,'') = IFNULL(ec.ad_name,'') AND
+IFNULL(z.ad_group_name,'') = IFNULL(ec.ad_group_name,'')  AND
+CONCAT('zotlo-', IF(z.media_source is NULL,'',z.media_source)) = CONCAT('zotlo-', IF(ec.media_source is NULL,'',ec.media_source))
+group by all
+
+) non_rltv
+
+# LTV Cohort Revenue d1,3,7,15,30
+
+FULL OUTER JOIN rockads-thirdparty.id1363478842_appsflyer_ds.id1363478842_revenue_ltv rltv
+ON
+  non_rltv.report_date=rltv.install_date
+  AND non_rltv.geo=rltv.country_code
+  AND non_rltv.campaign=rltv.campaign
+  AND non_rltv.adset=rltv.af_adset
+  AND non_rltv.ad=rltv.af_ad
+  AND non_rltv.media_source=rltv.media_source
+  AND non_rltv.appsflyer_os_id=rltv.appsflyer_os_id
+
+# Zotlo LTV Cohort Revenue d0,1,3,7,15,30
+
+FULL OUTER JOIN rockads-thirdparty.id1363478842_appsflyer_ds.id1363478842_zotlo_revenue_ltv zotlo_rltv
+ON
+  non_rltv.report_date=zotlo_rltv.install_date
+  AND non_rltv.geo=zotlo_rltv.country_code
+  AND non_rltv.campaign=zotlo_rltv.campaign
+  AND non_rltv.adset=zotlo_rltv.af_adset
+  AND non_rltv.ad=zotlo_rltv.af_ad
+  AND non_rltv.media_source=zotlo_rltv.media_source
+  AND non_rltv.appsflyer_os_id=zotlo_rltv.appsflyer_os_id
+),
+
+-- LEVEL 1
+raw_main_data_with_os_l1 as (
+SELECT *, 
+IF(appsflyer_os_id IS NULL, 
+    CASE 
+        WHEN REGEXP_CONTAINS(campaign, r'_w2a_web_to_and_|_inapp_and_to_store_|_w2a_web2and_') THEN 'Android'
+        WHEN REGEXP_CONTAINS(campaign, r'_android_') THEN 'Android'
+        WHEN REGEXP_CONTAINS(campaign, r'_w2a_web_to_ios_|_inapp_ios_to_store_|_w2a_web2ios_|w2a_deneme') THEN 'IOS'
+        WHEN REGEXP_CONTAINS(campaign, r'_webpayment_') THEN 'Web'
+        WHEN REGEXP_CONTAINS(media_source, r'zotlo-') THEN 'Web'
+        ELSE 'IOS'
+    END,
+    CASE 
+        WHEN REGEXP_CONTAINS(campaign, r'_w2a_web_to_and_|_inapp_and_to_store_|_w2a_web2and_') THEN 'Android'
+        WHEN REGEXP_CONTAINS(campaign, r'_w2a_web_to_ios_|_inapp_ios_to_store_|_w2a_web2ios_|w2a_deneme') THEN 'IOS'
+        WHEN REGEXP_CONTAINS(campaign, r'_webpayment_') THEN 'Web'
+        WHEN REGEXP_CONTAINS(media_source, r'zotlo-') THEN 'Web'
+        WHEN REGEXP_CONTAINS(appsflyer_os_id, r'_') THEN 'Android'
+        ELSE 'IOS'
+    END
+) as db_operating_system,
+FROM raw_main_data
+
+),
+-- LEVEL 2
+raw_main_data_with_bases_l2 as (
+SELECT *, 
+IFNULL(event_revenue,0) as db_overview_revenue,
+IFNULL(activity_event_revenue,0) as db_activity_revenue,
+IFNULL(total_master_installs,0) as db_install,
+IFNULL(CASE 
+  WHEN db_operating_system = "Web" THEN total_cost
+  ELSE 0
+END,0) as db_web_cost,
+IFNULL(CASE 
+  WHEN db_operating_system!= "Web" THEN total_cost
+  ELSE 0
+END,0) as db_app_cost,
+
+CASE 
+  WHEN media_source = 'ORGANIC'
+  THEN IFNULL(IFNULL(total_master_installs,0), 0)
+  ELSE 0
+END as db_organic_install
+
+ FROM raw_main_data_with_os_l1
+),
+
+-- LEVEL 3
+db_metrics_calculated AS (
+SELECT 
+report_date,
+app_id,
+geo,
+campaign,
+adset,
+ad,
+media_source,
+appsflyer_os_id,
+db_operating_system,
+IFNULL(sum(total_cost),0) AS db_total_cost,
+
+IFNULL(SAFE_DIVIDE(SUM(IFNULL(d0,0)) , IFNULL(IFNULL(sum(total_cost),0) ,0)), 0) as db_roas_d0,
+IFNULL(SAFE_DIVIDE(SUM(IFNULL(d1,0)) , IFNULL(IFNULL(sum(total_cost),0) ,0)), 0) as db_roas_d1,
+IFNULL(SAFE_DIVIDE(SUM(IFNULL(d3,0)) , IFNULL(IFNULL(sum(total_cost),0) ,0)), 0) as db_roas_d3,
+IFNULL(SAFE_DIVIDE(SUM(IFNULL(d15,0)) , IFNULL(IFNULL(sum(total_cost),0) ,0)), 0) as db_roas_d15,
+IFNULL(SAFE_DIVIDE(SUM(IFNULL(d30,0)) , IFNULL(IFNULL(sum(total_cost),0) ,0)), 0) as db_roas_m1,
+IFNULL(SAFE_DIVIDE(SUM(IFNULL(d60,0)) , IFNULL(IFNULL(sum(total_cost),0) ,0)), 0) as db_roas_m2,
+IFNULL(SAFE_DIVIDE(SUM(IFNULL(d90,0)) , IFNULL(IFNULL(sum(total_cost),0) ,0)), 0) as db_roas_m3,
+IFNULL(SAFE_DIVIDE(SUM(IFNULL(d120,0)) , IFNULL(IFNULL(sum(total_cost),0) ,0)), 0) as db_roas_m4,
+IFNULL(SAFE_DIVIDE(SUM(IFNULL(d150,0)) , IFNULL(IFNULL(sum(total_cost),0) ,0)), 0) as db_roas_m5,
+IFNULL(SAFE_DIVIDE(SUM(IFNULL(d180,0)) , IFNULL(IFNULL(sum(total_cost),0) ,0)), 0) as db_roas_m6,
+IFNULL(SAFE_DIVIDE(SUM(IFNULL(d210,0)) , IFNULL(IFNULL(sum(total_cost),0) ,0)), 0) as db_roas_m7,
+IFNULL(SAFE_DIVIDE(SUM(IFNULL(d240,0)) , IFNULL(IFNULL(sum(total_cost),0) ,0)), 0) as db_roas_m8,
+IFNULL(SAFE_DIVIDE(SUM(IFNULL(d270,0)) , IFNULL(IFNULL(sum(total_cost),0) ,0)), 0) as db_roas_m9,
+IFNULL(SAFE_DIVIDE(SUM(IFNULL(d300,0)) , IFNULL(IFNULL(sum(total_cost),0) ,0)), 0) as db_roas_m10,
+IFNULL(SAFE_DIVIDE(SUM(IFNULL(d330,0)) , IFNULL(IFNULL(sum(total_cost),0) ,0)), 0) as db_roas_m11,
+IFNULL(SAFE_DIVIDE(SUM(IFNULL(d360,0)) , IFNULL(IFNULL(sum(total_cost),0) ,0)), 0) as db_roas_m12,
+IFNULL(SAFE_DIVIDE(sum(event_revenue),IFNULL(sum(total_cost),0)) ,0) as db_roas_ltv,
+IFNULL(SAFE_DIVIDE(sum(revenue_rc_initial_purchase_event),IFNULL(sum(total_cost),0)) ,0) as db_roas_subscribe,
+SAFE_DIVIDE(IFNULL(SUM(db_organic_install),0),IFNULL(SUM(db_install),0)) as organic_install_rate,
+SAFE_DIVIDE(sum(db_overview_revenue),sum(db_install)) as user_ltv_rpd,
+
+SUM(IFNULL(total_clicks,0))+SUM(IFNULL(fb_total_outbound_clicks,0)) AS db_total_clicks,
+SUM(IFNULL(total_impressions,0))+SUM(IFNULL(fb_total_impressions,0)) AS db_total_impressions,
+SAFE_DIVIDE(SUM(IFNULL(total_clicks,0))+SUM(IFNULL(fb_total_outbound_clicks,0)) , SUM(IFNULL(total_impressions,0))+SUM(IFNULL(fb_total_impressions,0))) AS db_ctr,
+
+SUM(IFNULL(rc_initial_purchase_event,0))+SUM(IFNULL(rc_non_subscription_purchase_event,0))+IFNULL(sum(rc_trial_started_event),0) + IFNULL(SUM(zotlo_overview_event_count_trial),0) as db_purchase,
+
+IFNULL(SAFE_DIVIDE(SUM(db_install) , SUM(IFNULL(total_clicks,0))+SUM(IFNULL(fb_total_outbound_clicks,0)))  ,0) AS db_cr,
+
+IFNULL(
+  SAFE_DIVIDE(((SAFE_MULTIPLY(sum(db_install),1000))), 
+(SUM(IFNULL(total_impressions,0))+SUM(IFNULL(fb_total_impressions,0))))
+,0) AS db_ipm,
+
+IFNULL(SAFE_DIVIDE(sum(rc_initial_purchase_event),sum(total_master_installs)),0) AS db_i2s,
+
+IFNULL(SAFE_DIVIDE(sum(rc_trial_started_event),sum(total_master_installs)),0) AS db_i2t,
+
+IFNULL(SAFE_DIVIDE( 
+  -- total_cost
+  (IFNULL(sum(total_cost),0)) , 
+  
+  SUM(db_install) ),0) AS db_cpi,
+
+IFNULL(
+  SAFE_DIVIDE(
+  -- total_cost
+    IFNULL(sum(total_cost),0) ,
+  -- db_purchase
+ SUM(IFNULL(rc_initial_purchase_event,0))+SUM(IFNULL(rc_non_subscription_purchase_event,0))+IFNULL(sum(rc_trial_started_event),0) + IFNULL(SUM(zotlo_overview_event_count_trial),0) 
+),0) as db_cpa_total,
+
+IFNULL(
+SAFE_DIVIDE (
+SUM(
+  CASE 
+    WHEN db_operating_system != "Web" THEN total_cost
+    ELSE 0
+  END
+) 
+,
+(
+  SUM(rc_initial_purchase_event) + 
+  SUM(rc_non_subscription_purchase_event)
+)
+)
+,0) AS db_cpa_app,
+
+SAFE_DIVIDE(
+sum(db_web_cost) , 
+sum(zotlo_overview_event_count_trial)
+) AS db_cpa_web,
+
+IFNULL(CASE 
+  WHEN db_operating_system = "Web" THEN SUM(IFNULL(total_impressions,0))+SUM(IFNULL(fb_total_impressions,0))
+  ELSE 0
+END,0) AS db_cpm_web, 
+
+IFNULL(CASE 
+  WHEN db_operating_system = "Web" THEN SUM(IFNULL(total_impressions,0))+SUM(IFNULL(fb_total_impressions,0))
+  ELSE 0
+END,0) AS db_cpm_app, 
+
+
+FROM raw_main_data_with_bases_l2
+GROUP BY 
+report_date,
+app_id,
+geo,
+campaign,
+adset,
+ad,
+media_source,
+appsflyer_os_id,
+db_operating_system
+
+)
+
+SELECT
+  *,
+  CAST(NULL AS FLOAT64) AS db_total_cost,
+  CAST(NULL AS FLOAT64) AS db_roas_d0,
+  CAST(NULL AS FLOAT64) AS db_roas_d1,
+  CAST(NULL AS FLOAT64) AS db_roas_d3,
+  CAST(NULL AS FLOAT64) AS db_roas_d15,
+  CAST(NULL AS FLOAT64) AS db_roas_m1,
+  CAST(NULL AS FLOAT64) AS db_roas_m2,
+  CAST(NULL AS FLOAT64) AS db_roas_m3,
+  CAST(NULL AS FLOAT64) AS db_roas_m4,
+  CAST(NULL AS FLOAT64) AS db_roas_m5,
+  CAST(NULL AS FLOAT64) AS db_roas_m6,
+  CAST(NULL AS FLOAT64) AS db_roas_m7,
+  CAST(NULL AS FLOAT64) AS db_roas_m8,
+  CAST(NULL AS FLOAT64) AS db_roas_m9,
+  CAST(NULL AS FLOAT64) AS db_roas_m10,
+  CAST(NULL AS FLOAT64) AS db_roas_m11,
+  CAST(NULL AS FLOAT64) AS db_roas_m12,
+  CAST(NULL AS FLOAT64) AS db_roas_ltv,
+  CAST(NULL AS FLOAT64) AS db_roas_subscribe,
+  CAST(NULL AS FLOAT64) AS organic_install_rate,
+  CAST(NULL AS FLOAT64) AS user_ltv_rpd,
+  CAST(NULL AS FLOAT64) AS db_total_clicks,
+  CAST(NULL AS FLOAT64) AS db_total_impressions,
+  CAST(NULL AS FLOAT64) AS db_ctr,
+  CAST(NULL AS FLOAT64) AS db_purchase,
+  CAST(NULL AS FLOAT64) AS db_cr,
+  CAST(NULL AS FLOAT64) AS db_ipm,
+  CAST(NULL AS FLOAT64) AS db_i2s,
+  CAST(NULL AS FLOAT64) AS db_i2t,
+  CAST(NULL AS FLOAT64) AS db_cpi,
+  CAST(NULL AS FLOAT64) AS db_cpa_total,
+  CAST(NULL AS FLOAT64) AS db_cpa_app,
+  CAST(NULL AS FLOAT64) AS db_cpa_web,
+  CAST(NULL AS FLOAT64) AS db_cpm_web,
+  CAST(NULL AS FLOAT64) AS db_cpm_app
+
+FROM
+  raw_main_data_with_bases_l2
+UNION ALL
+SELECT 
+report_date,
+  app_id,
+  geo,
+  campaign,
+  adset,
+  ad,
+  media_source,
+  appsflyer_os_id,
+  NULL AS rc_trial_converted_event,
+  NULL AS rc_renewal_event,
+  NULL AS rc_cancellation_event,
+  NULL AS rc_trial_started_event,
+  NULL AS rc_trial_cancelled_event,
+  NULL AS rc_initial_purchase_event,
+  NULL AS rc_non_subscription_purchase_event,
+  NULL AS rc_expiration_event,
+  NULL AS rc_billing_issue_event,
+  NULL AS rc_product_change_event,
+  NULL AS af_purchase,
+  NULL AS package_purchase,
+  NULL AS unique_rc_trial_converted_event,
+  NULL AS unique_rc_renewal_event,
+  NULL AS unique_rc_cancellation_event,
+  NULL AS unique_rc_trial_started_event,
+  NULL AS unique_rc_trial_cancelled_event,
+  NULL AS unique_rc_initial_purchase_event,
+  NULL AS unique_rc_non_subscription_purchase_event,
+  NULL AS unique_rc_expiration_event,
+  NULL AS unique_rc_billing_issue_event,
+  NULL AS unique_rc_product_change_event,
+  NULL AS unique_af_purchase,
+  NULL AS unique_package_purchase,
+  NULL AS revenue_rc_trial_converted_event,
+  NULL AS revenue_rc_renewal_event,
+  NULL AS revenue_rc_cancellation_event,
+  NULL AS revenue_rc_trial_started_event,
+  NULL AS revenue_rc_trial_cancelled_event,
+  NULL AS revenue_rc_initial_purchase_event,
+  NULL AS revenue_rc_non_subscription_purchase_event,
+  NULL AS revenue_rc_expiration_event,
+  NULL AS revenue_rc_billing_issue_event,
+  NULL AS revenue_rc_product_change_event,
+  NULL AS revenue_af_purchase,
+  NULL AS revenue_package_purchase,
+  NULL AS event_revenue,
+  NULL AS total_cost,
+  NULL AS total_clicks,
+  NULL AS total_installs,
+  NULL AS total_impressions,
+  NULL AS total_re_attributions,
+  NULL AS total_re_engagements,
+  NULL AS total_video_completions,
+  NULL AS total_video_25p_views,
+  NULL AS total_video_50p_views,
+  NULL AS total_video_75p_views,
+  NULL AS fb_total_outbound_clicks,
+  NULL AS fb_total_impressions,
+  NULL AS fb_total_clicks,
+  NULL AS thumbnail_url,
+  NULL AS video_url,
+  NULL AS total_master_installs,
+  NULL AS activity_event_revenue,
+  NULL AS activity_revenue_paywallShowed,
+  NULL AS activity_revenue_paymentInit,
+  NULL AS activity_revenue_rc_renewal_event,
+  NULL AS activity_revenue_rc_trial_converted_event,
+  NULL AS activity_revenue_rc_expiration_event,
+  NULL AS activity_revenue_rc_cancellation_event,
+  NULL AS activity_revenue_rc_billing_issue_event,
+  NULL AS activity_revenue_rc_initial_purchase_event,
+  NULL AS activity_revenue_rc_product_change_event,
+  NULL AS activity_revenue_rc_trial_started_event,
+  NULL AS activity_revenue_rc_trial_cancelled_event,
+  NULL AS activity_revenue_WebToAppInstall,
+  NULL AS activity_revenue_rc_non_subscription_purchase_event,
+  NULL AS activity_revenue_af_purchase,
+  NULL AS activity_revenue_package_purchase,
+  NULL AS zotlo_activity_event_revenue,
+  NULL AS zotlo_activity_event_count_reactive,
+  NULL AS zotlo_activity_revenue_reactive,
+  NULL AS zotlo_activity_event_count_trial_to_paid,
+  NULL AS zotlo_activity_revenue_trial_to_paid,
+  NULL AS zotlo_activity_event_count_trial,
+  NULL AS zotlo_activity_revenue_trial,
+  NULL AS zotlo_activity_event_count_renewal,
+  NULL AS zotlo_activity_revenue_renewal,
+  NULL AS zotlo_activity_event_count_set_quantity,
+  NULL AS zotlo_activity_revenue_set_quantity,
+  NULL AS zotlo_activity_event_count_consumable,
+  NULL AS zotlo_activity_revenue_consumable,
+  NULL AS zotlo_activity_event_count_start_paid,
+  NULL AS zotlo_activity_revenue_start_paid,
+  NULL AS zotlo_activity_event_count_package_upgrate,
+  NULL AS zotlo_activity_revenue_package_upgrate,
+  NULL AS zotlo_activity_event_count_epin,
+  NULL AS zotlo_activity_revenue_epin,
+  NULL AS zotlo_activity_event_count_package_upgrade,
+  NULL AS zotlo_activity_revenue_package_upgrade,
+  NULL AS zotlo_overview_event_revenue,
+  NULL AS zotlo_overview_event_count_reactive,
+  NULL AS zotlo_overview_revenue_reactive,
+  NULL AS zotlo_overview_event_count_trial_to_paid,
+  NULL AS zotlo_overview_revenue_trial_to_paid,
+  NULL AS zotlo_overview_event_count_trial,
+  NULL AS zotlo_overview_revenue_trial,
+  NULL AS zotlo_overview_event_count_renewal,
+  NULL AS zotlo_overview_revenue_renewal,
+  NULL AS zotlo_overview_event_count_set_quantity,
+  NULL AS zotlo_overview_revenue_set_quantity,
+  NULL AS zotlo_overview_event_count_consumable,
+  NULL AS zotlo_overview_revenue_consumable,
+  NULL AS zotlo_overview_event_count_start_paid,
+  NULL AS zotlo_overview_revenue_start_paid,
+  NULL AS zotlo_overview_event_count_package_upgrate,
+  NULL AS zotlo_overview_revenue_package_upgrate,
+  NULL AS zotlo_overview_event_count_epin,
+  NULL AS zotlo_overview_revenue_epin,
+  NULL AS zotlo_overview_event_count_package_upgrade,
+  NULL AS zotlo_overview_revenue_package_upgrade,
+  NULL AS d0,
+  NULL AS d1,
+  NULL AS d3,
+  NULL AS d7,
+  NULL AS d15,
+  NULL AS d30,
+  NULL AS d60,
+  NULL AS d90,
+  NULL AS d120,
+  NULL AS d150,
+  NULL AS d180,
+  NULL AS d210,
+  NULL AS d240,
+  NULL AS d270,
+  NULL AS d300,
+  NULL AS d330,
+  NULL AS d360,
+  NULL AS ltv,
+  NULL AS zotlo_d0,
+  NULL AS zotlo_d1,
+  NULL AS zotlo_d3,
+  NULL AS zotlo_d7,
+  NULL AS zotlo_d15,
+  NULL AS zotlo_d30,
+  NULL AS zotlo_d60,
+  NULL AS zotlo_d90,
+  NULL AS zotlo_d120,
+  NULL AS zotlo_d150,
+  NULL AS zotlo_d180,
+  NULL AS zotlo_d210,
+  NULL AS zotlo_d240,
+  NULL AS zotlo_d270,
+  NULL AS zotlo_d300,
+  NULL AS zotlo_d330,
+  NULL AS zotlo_d360,
+  NULL AS zotlo_ltv,
+  db_operating_system,
+  NULL AS db_overview_revenue,
+  NULL AS db_activity_revenue,
+  NULL AS db_install,
+  NULL AS db_web_cost,
+  NULL AS db_app_cost,
+  NULL AS db_organic_install,
+
+  db_total_cost,
+  db_roas_d0,
+  db_roas_d1,
+  db_roas_d3,
+  db_roas_d15,
+  db_roas_m1,
+  db_roas_m2,
+  db_roas_m3,
+  db_roas_m4,
+  db_roas_m5,
+  db_roas_m6,
+  db_roas_m7,
+  db_roas_m8,
+  db_roas_m9,
+  db_roas_m10,
+  db_roas_m11,
+  db_roas_m12,
+  db_roas_ltv,
+  db_roas_subscribe,
+  organic_install_rate,
+  user_ltv_rpd,
+  db_total_clicks,
+  db_total_impressions,
+  db_ctr,
+  db_purchase,
+  db_cr,
+  db_ipm,
+  db_i2s,
+  db_i2t,
+  db_cpi,
+  db_cpa_total,
+  db_cpa_app,
+  db_cpa_web,
+  db_cpm_web,
+  db_cpm_app
+
+FROM db_metrics_calculated

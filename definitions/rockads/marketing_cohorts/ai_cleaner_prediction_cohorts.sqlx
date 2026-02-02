@@ -1,0 +1,661 @@
+config {
+    type: "operations",
+    tags: ["ai_cleaner_prediction_cohorts"],
+    name: "ai_cleaner_ltv_prediction_cohorts"
+}
+
+
+
+
+
+CREATE TEMP FUNCTION fix_tr(s STRING)
+RETURNS STRING
+AS (
+  REPLACE(
+    REPLACE(
+      REPLACE(
+        REPLACE(
+          REPLACE(
+            REPLACE(
+              REPLACE(
+                REPLACE(
+                  REPLACE(
+                    REPLACE(
+                      REPLACE(
+                        REPLACE(
+                          s,
+                          'Ã§',
+                          'ç'),
+                        'Ã¶',
+                        'ö'),
+                      'Ã¼',
+                      'ü'),
+                    'ÄŸ',
+                    'ğ'),
+                  'Ä±',
+                  'ı'),
+                'ÅŸ',
+                'ş'),
+              'Ã‡',
+              'Ç'),
+            'Ã–',
+            'Ö'),
+          'Ãœ',
+          'Ü'),
+        'Äž',
+        'Ğ'),
+      'Ä°',
+      'İ'),
+    'Åž',
+    'Ş')
+);
+
+CREATE OR REPLACE TABLE rockads-thirdparty.appsflyer_ltv.ai_cleaner_ltv_prediction_daily_cohorts
+  PARTITION BY install_date
+AS
+WITH
+  ios_in_apps AS (
+    SELECT
+      event_time,
+      install_time,
+      attributed_touch_time,
+      'id6738388891' AS appsflyer_app_id,
+      JSON_EXTRACT_SCALAR(event_value, '$.af_content_id') AS content_id,
+      customer_user_id AS user_id,
+      appsflyer_id,
+      CASE
+          WHEN
+            LOWER(TRIM(IF(media_source = '', NULL, media_source)))
+              IN (
+                "facebook", "facebook ads", "fb", "restricted", "future_boy",
+                "ig", "old_memory", "w2a_new", "dreamy_wedding", "mermaid",
+                "dj", "custom", "social_instagram", "social_instagram_tr_batu",
+                "facebook-sitelink", "facebook_ads")
+            OR LOWER(TRIM(IF(media_source = '', NULL, media_source)))
+              LIKE "%facebook%"
+            OR LOWER(TRIM(IF(media_source = '', NULL, media_source)))
+              LIKE "%instagram%"
+            THEN "facebook"
+          WHEN
+            LOWER(TRIM(IF(media_source = '', NULL, media_source)))
+              IN (
+                "tiktok", "tiktokglobal_int", "social_tiktok_tr_batu",
+                "w2a_tiktok")
+            OR LOWER(TRIM(IF(media_source = '', NULL, media_source)))
+              LIKE "%tiktok%"
+            THEN "tiktok"
+          WHEN
+            LOWER(TRIM(IF(media_source = '', NULL, media_source)))
+            = "user_invite"
+            THEN "user_invite"
+          WHEN IF(media_source = '', NULL, media_source) IS NULL
+            THEN "organic"
+          ELSE LOWER(TRIM(IF(media_source = '', NULL, media_source)))
+          END AS media_source,
+      country_code,
+      af_c_id AS campaign_id,
+      campaign,
+      af_adset AS ad_set,
+      af_ad_id AS ad_id,
+      af_ad AS ad_name,
+      'IOS' AS operating_system,
+      event_name,
+      event_revenue_currency AS currency,
+      CAST(event_revenue AS FLOAT64) AS revenue
+    FROM
+      `rockads-thirdparty.appsflyer_airbyte.ai_cleaner_in_app_events`
+    UNION ALL
+    SELECT
+      event_time,
+      install_time,
+      SAFE.PARSE_TIMESTAMP('%Y-%m-%d %H:%M:%S', attributed_touch_time)
+        AS attributed_touch_time,
+      'id6738388891' AS appsflyer_app_id,
+      JSON_EXTRACT_SCALAR(event_value, '$.af_content_id') AS content_id,
+      customer_user_id AS user_id,
+      appsflyer_id,
+      CASE
+          WHEN
+            LOWER(TRIM(IF(media_source = '', NULL, media_source)))
+              IN (
+                "facebook", "facebook ads", "fb", "restricted", "future_boy",
+                "ig", "old_memory", "w2a_new", "dreamy_wedding", "mermaid",
+                "dj", "custom", "social_instagram", "social_instagram_tr_batu",
+                "facebook-sitelink", "facebook_ads")
+            OR LOWER(TRIM(IF(media_source = '', NULL, media_source)))
+              LIKE "%facebook%"
+            OR LOWER(TRIM(IF(media_source = '', NULL, media_source)))
+              LIKE "%instagram%"
+            THEN "facebook"
+          WHEN
+            LOWER(TRIM(IF(media_source = '', NULL, media_source)))
+              IN (
+                "tiktok", "tiktokglobal_int", "social_tiktok_tr_batu",
+                "w2a_tiktok")
+            OR LOWER(TRIM(IF(media_source = '', NULL, media_source)))
+              LIKE "%tiktok%"
+            THEN "tiktok"
+          WHEN
+            LOWER(TRIM(IF(media_source = '', NULL, media_source)))
+            = "user_invite"
+            THEN "user_invite"
+          WHEN IF(media_source = '', NULL, media_source) IS NULL
+            THEN "organic"
+          ELSE LOWER(TRIM(IF(media_source = '', NULL, media_source)))
+          END AS media_source,
+      country_code,
+      campaign_id,
+      campaign,
+      af_adset AS ad_set,
+      af_ad_id AS ad_id,
+      af_ad AS ad_name,
+      'IOS' AS operating_system,
+      event_name,
+      event_revenue_currency AS currency,
+      CAST(event_revenue AS FLOAT64) AS revenue
+    FROM
+      `rockads-thirdparty.appsflyer_airflow.id6738388891_in_app_events`
+  ),
+  ai_cleaner_appsflyer_merged AS (
+    SELECT
+      *,
+      TIMESTAMP(CURRENT_DATETIME('UTC')) AS _inserted_at
+    FROM
+      (
+        SELECT
+          *
+        FROM
+          ios_in_apps
+        QUALIFY
+          ROW_NUMBER()
+            OVER (
+              PARTITION BY appsflyer_id, event_name, event_time
+              ORDER BY event_time
+            )
+          = 1
+      )
+  ),
+  amplitude_events AS (
+  SELECT
+    *
+  FROM (
+    SELECT
+      *,
+      ROW_NUMBER() OVER (PARTITION BY uuid) rn
+    FROM
+      `rockads-thirdparty.cleaner_amplitude_raw.EVENTS_650693`  
+    WHERE
+      DATE(event_time) >= "2023-01-01" 
+      AND DATE(event_time) <= CURRENT_DATE()
+  ) t
+  WHERE
+    rn = 1
+),
+  base_table AS (
+    SELECT DISTINCT
+      d.day AS event_time,
+      u.user_id
+    FROM
+      (
+        SELECT
+          day
+        FROM
+          UNNEST(GENERATE_DATE_ARRAY('2025-03-01', CURRENT_DATE())) AS day
+      ) d
+    CROSS JOIN
+      (
+        SELECT DISTINCT user_id
+        FROM
+          amplitude_events
+        UNION ALL
+        SELECT DISTINCT user_id
+        FROM
+          ai_cleaner_appsflyer_merged
+      ) u
+  ),
+  raw_sessions AS (
+    SELECT
+      t.user_id,
+      DATE(t.event_time) AS event_time,
+      t.session_id
+    FROM
+      amplitude_events t
+    WHERE
+      t.session_id != -1
+  ),
+  raw_events AS (
+    SELECT
+      user_id,
+      SUM(revenue) AS revenue,
+      DATE(event_time) AS event_time,
+      MIN(install_time) AS install_time,
+      MAX(country_code) AS country_code,
+      MAX(CASE
+        WHEN campaign IS NULL THEN "ORGANIC"
+        ELSE campaign
+    END
+      ) AS campaign,
+      MAX(ad_set) AS ad_set,
+      MAX(
+        CASE
+          WHEN
+            LOWER(TRIM(IF(media_source = '', NULL, media_source)))
+              IN (
+                "facebook", "facebook ads", "fb", "restricted", "future_boy",
+                "ig", "old_memory", "w2a_new", "dreamy_wedding", "mermaid",
+                "dj", "custom", "social_instagram", "social_instagram_tr_batu",
+                "facebook-sitelink", "facebook_ads")
+            OR LOWER(TRIM(IF(media_source = '', NULL, media_source)))
+              LIKE "%facebook%"
+            OR LOWER(TRIM(IF(media_source = '', NULL, media_source)))
+              LIKE "%instagram%"
+            THEN "facebook"
+          WHEN
+            LOWER(TRIM(IF(media_source = '', NULL, media_source)))
+              IN (
+                "tiktok", "tiktokglobal_int", "social_tiktok_tr_batu",
+                "w2a_tiktok")
+            OR LOWER(TRIM(IF(media_source = '', NULL, media_source)))
+              LIKE "%tiktok%"
+            THEN "tiktok"
+          WHEN
+            LOWER(TRIM(IF(media_source = '', NULL, media_source)))
+            = "user_invite"
+            THEN "user_invite"
+          WHEN IF(media_source = '', NULL, media_source) IS NULL
+            THEN "organic"
+          ELSE LOWER(TRIM(IF(media_source = '', NULL, media_source)))
+          END) AS media_source,
+      MAX(operating_system) AS operating_system,
+      MAX(t.ad_name) AS ad_name,
+      MAX(t.content_id) AS content_id
+    FROM
+      ai_cleaner_appsflyer_merged t
+    GROUP BY
+      user_id,
+      DATE(event_time)
+  ),
+  joined_raw AS (
+    SELECT
+      b.user_id,
+      b.event_time,
+      DATE(e.install_time) AS installed_day,
+      e.campaign,
+      e.country_code,
+      e.ad_set,
+      e.media_source,
+      e.revenue,
+      e.operating_system,
+      e.ad_name,
+      e.content_id,
+      s.session_id
+    FROM
+      base_table b
+    LEFT JOIN
+      raw_events e
+      ON
+        b.user_id = e.user_id
+        AND b.event_time = e.event_time
+    LEFT JOIN
+      raw_sessions s
+      ON
+        b.user_id = s.user_id
+        AND b.event_time = s.event_time
+  ),
+  final_ses_agg AS (
+    SELECT
+      installed_day,
+      NULL AS event_id,
+      "sessions" AS event_name,
+      DATE_DIFF(CURRENT_DATE(), installed_day, DAY) AS days_since_install,
+      campaign,
+      country_code,
+      ad_set,
+      media_source,
+      MAX(revenue) AS revenue,
+      event_time,
+      operating_system,
+      user_id AS customer_user_id,
+      ad_name,
+      content_id,
+      COUNT(DISTINCT session_id) AS unique_session_count,
+      DATE_DIFF(DATE(event_time), installed_day, DAY) AS day_difference
+    FROM
+      joined_raw
+    GROUP BY
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      10,
+      11,
+      12,
+      13,
+      14
+  ),
+  events AS (
+    SELECT
+      DATE(install_time) AS installed_day,
+      event_name,
+      DATE_DIFF(CURRENT_DATE(), DATE(install_time), DAY) AS days_since_install,
+      af_adset AS ad_set,
+      CASE
+        WHEN campaign IS NULL THEN "ORGANIC"
+        ELSE campaign
+        END AS campaign,
+      country_code,
+      CASE
+          WHEN
+            LOWER(TRIM(IF(media_source = '', NULL, media_source)))
+              IN (
+                "facebook", "facebook ads", "fb", "restricted", "future_boy",
+                "ig", "old_memory", "w2a_new", "dreamy_wedding", "mermaid",
+                "dj", "custom", "social_instagram", "social_instagram_tr_batu",
+                "facebook-sitelink", "facebook_ads")
+            OR LOWER(TRIM(IF(media_source = '', NULL, media_source)))
+              LIKE "%facebook%"
+            OR LOWER(TRIM(IF(media_source = '', NULL, media_source)))
+              LIKE "%instagram%"
+            THEN "facebook"
+          WHEN
+            LOWER(TRIM(IF(media_source = '', NULL, media_source)))
+              IN (
+                "tiktok", "tiktokglobal_int", "social_tiktok_tr_batu",
+                "w2a_tiktok")
+            OR LOWER(TRIM(IF(media_source = '', NULL, media_source)))
+              LIKE "%tiktok%"
+            THEN "tiktok"
+          WHEN
+            LOWER(TRIM(IF(media_source = '', NULL, media_source)))
+            = "user_invite"
+            THEN "user_invite"
+          WHEN IF(media_source = '', NULL, media_source) IS NULL
+            THEN "organic"
+          ELSE LOWER(TRIM(IF(media_source = '', NULL, media_source)))
+          END AS media_source,
+      SAFE_CAST(event_revenue AS FLOAT64) AS revenue,
+      DATE(event_time) AS event_time,
+      'IOS' AS operating_system,
+      af_ad AS ad_name,
+      customer_user_id,
+      JSON_EXTRACT_SCALAR(event_value, '$.af_content_id') AS content_id,
+      0 AS unique_session_count,
+      DATE_DIFF(DATE(event_time), DATE(install_time), DAY) AS day_difference
+    FROM
+      `rockads-thirdparty.appsflyer_airbyte.ai_cleaner_in_app_events` t
+    WHERE
+      DATE_DIFF(DATE(event_time), DATE(install_time), DAY) >= 0
+      AND DATE(event_time) < "2025-10-13"
+      AND event_name LIKE "rc%"
+    UNION ALL
+    SELECT
+      DATE(install_time) AS installed_day,
+      event_name,
+      DATE_DIFF(CURRENT_DATE(), DATE(install_time), DAY) AS days_since_install,
+      af_adset AS ad_set,
+      CASE
+        WHEN campaign IS NULL OR campaign = "" THEN "ORGANIC"
+        ELSE campaign
+        END AS campaign,
+      country_code,
+      CASE
+          WHEN
+            LOWER(TRIM(IF(media_source = '', NULL, media_source)))
+              IN (
+                "facebook", "facebook ads", "fb", "restricted", "future_boy",
+                "ig", "old_memory", "w2a_new", "dreamy_wedding", "mermaid",
+                "dj", "custom", "social_instagram", "social_instagram_tr_batu",
+                "facebook-sitelink", "facebook_ads")
+            OR LOWER(TRIM(IF(media_source = '', NULL, media_source)))
+              LIKE "%facebook%"
+            OR LOWER(TRIM(IF(media_source = '', NULL, media_source)))
+              LIKE "%instagram%"
+            THEN "facebook"
+          WHEN
+            LOWER(TRIM(IF(media_source = '', NULL, media_source)))
+              IN (
+                "tiktok", "tiktokglobal_int", "social_tiktok_tr_batu",
+                "w2a_tiktok")
+            OR LOWER(TRIM(IF(media_source = '', NULL, media_source)))
+              LIKE "%tiktok%"
+            THEN "tiktok"
+          WHEN
+            LOWER(TRIM(IF(media_source = '', NULL, media_source)))
+            = "user_invite"
+            THEN "user_invite"
+          WHEN IF(media_source = '', NULL, media_source) IS NULL
+            THEN "organic"
+          ELSE LOWER(TRIM(IF(media_source = '', NULL, media_source)))
+          END AS media_source,
+      SAFE_CAST(event_revenue AS FLOAT64) AS revenue,
+      DATE(event_time) AS event_time,
+      'IOS' AS operating_system,
+      af_ad AS ad_name,
+      customer_user_id,
+      JSON_EXTRACT_SCALAR(event_value, '$.af_content_id') AS content_id,
+      0 AS unique_session_count,
+      DATE_DIFF(DATE(event_time), DATE(install_time), DAY) AS day_difference
+    FROM
+      `rockads-thirdparty.appsflyer_airflow.id6738388891_in_app_events` t
+    WHERE
+      DATE_DIFF(DATE(event_time), DATE(install_time), DAY) >= 0
+      AND DATE(event_time) >= "2025-10-13"
+      AND event_name LIKE "rc%"
+   UNION ALL
+    SELECT
+      DATE(install_time) installed_day,
+      event_name,
+      DATE_DIFF(CURRENT_DATE(), DATE(install_time), DAY) AS days_since_install,
+      NULL AS ad_set,
+      CASE
+        WHEN campaign IS NULL THEN "ORGANIC"
+        ELSE campaign
+        END
+        AS campaign,
+      country_code,
+      CASE
+        WHEN
+          LOWER(TRIM(IF(media_source = '', NULL, media_source)))
+            IN (
+              "facebook", "facebook ads", "fb", "restricted", "future_boy",
+              "ig", "old_memory", "w2a_new", "dreamy_wedding", "mermaid", "dj",
+              "custom", "social_instagram", "social_instagram_tr_batu",
+              "facebook-sitelink", "facebook_ads")
+          OR LOWER(TRIM(IF(media_source = '', NULL, media_source)))
+            LIKE "%facebook%"
+          OR LOWER(TRIM(IF(media_source = '', NULL, media_source)))
+            LIKE "%instagram%"
+          THEN "facebook"
+        WHEN
+          LOWER(TRIM(IF(media_source = '', NULL, media_source)))
+            IN (
+              "tiktok", "tiktokglobal_int", "social_tiktok_tr_batu",
+              "w2a_tiktok")
+          OR LOWER(TRIM(IF(media_source = '', NULL, media_source)))
+            LIKE "%tiktok%"
+          THEN "tiktok"
+        WHEN
+          LOWER(TRIM(IF(media_source = '', NULL, media_source)))
+          = "user_invite"
+          THEN "user_invite"
+        WHEN IF(media_source = '', NULL, media_source) IS NULL
+          THEN "organic"
+        ELSE LOWER(TRIM(IF(media_source = '', NULL, media_source)))
+        END AS media_source,
+      CAST(event_revenue AS FLOAT64) AS revenue,
+      DATE(event_time) event_time,
+      "IOS" AS operating_system,
+      af_ad AS ad_name,
+      customer_user_id,
+      JSON_EXTRACT_SCALAR(event_value, '$.af_content_id') AS content_id,
+      0 AS unique_session_count,
+      DATE_DIFF(DATE(event_time), DATE(install_time), DAY) AS day_difference
+    FROM `rockads-thirdparty.appsflyer_airbyte.ai_cleaner_organic_in_app_events`
+    WHERE
+      DATE_DIFF(DATE(event_time), DATE(install_time), DAY) >= 0
+      AND DATE(event_time) >= "2025-03-01"
+      AND event_name LIKE "rc%"
+  ),
+  geo AS (
+    SELECT
+      DATE_TRUNC(report_date, DAY) AS report_day,
+      CASE
+        WHEN campaign IS NULL THEN "ORGANIC"
+        ELSE campaign
+        END AS campaign,
+      CASE
+          WHEN
+            LOWER(TRIM(IF(media_source = '', NULL, media_source)))
+              IN (
+                "facebook", "facebook ads", "fb", "restricted", "future_boy",
+                "ig", "old_memory", "w2a_new", "dreamy_wedding", "mermaid",
+                "dj", "custom", "social_instagram", "social_instagram_tr_batu",
+                "facebook-sitelink", "facebook_ads")
+            OR LOWER(TRIM(IF(media_source = '', NULL, media_source)))
+              LIKE "%facebook%"
+            OR LOWER(TRIM(IF(media_source = '', NULL, media_source)))
+              LIKE "%instagram%"
+            THEN "facebook"
+          WHEN
+            LOWER(TRIM(IF(media_source = '', NULL, media_source)))
+              IN (
+                "tiktok", "tiktokglobal_int", "social_tiktok_tr_batu",
+                "w2a_tiktok")
+            OR LOWER(TRIM(IF(media_source = '', NULL, media_source)))
+              LIKE "%tiktok%"
+            THEN "tiktok"
+          WHEN
+            LOWER(TRIM(IF(media_source = '', NULL, media_source)))
+            = "user_invite"
+            THEN "user_invite"
+          WHEN IF(media_source = '', NULL, media_source) IS NULL
+            THEN "organic"
+          ELSE LOWER(TRIM(IF(media_source = '', NULL, media_source)))
+          END AS media_source,
+          geo AS country_code,
+      IF(
+  appsflyer_os_id IS NULL,
+  CASE
+    WHEN campaign IS NOT NULL AND REGEXP_CONTAINS(LOWER(campaign), r'and_') THEN 'ANDROID'
+    WHEN campaign IS NOT NULL AND REGEXP_CONTAINS(UPPER(campaign), r'IOS_') THEN 'IOS'
+    ELSE 'IOS'  
+  END,
+  CASE
+    WHEN REGEXP_CONTAINS(appsflyer_os_id, r'_') THEN 'ANDROID'
+    ELSE 'IOS'
+  END
+) AS operating_system,
+      adset AS ad_set,
+      SUM(event_revenue) event_revenue,
+      ad AS ad_name,
+      total_cost,
+      total_master_installs AS total_installs,
+      total_clicks,
+      total_impressions
+    FROM
+      `rockads-thirdparty.id6738388891_appsflyer_ds.id6738388891_platforms_merged_metrics_all_cost_geo_unique_with_links`
+        t
+    GROUP BY
+      ALL
+  ),
+  geo_daily_agg AS (
+    SELECT
+      report_day,
+      country_code,
+      media_source,
+      operating_system,
+      fix_tr(NULLIF(NULLIF(campaign, ''), 'None')) AS campaign,
+      fix_tr(COALESCE(NULLIF(NULLIF(ad_set, ''), 'None'), campaign)) AS ad_set,
+      fix_tr(COALESCE(NULLIF(NULLIF(ad_name, ''), 'None'), campaign))
+        AS ad_name,
+      SUM(event_revenue) AS total_revenue,
+      SUM(total_cost) AS total_cost,
+      SUM(total_installs) AS total_installs,
+      SUM(total_clicks) AS total_clicks,
+      SUM(total_impressions) AS total_impressions
+    FROM
+      geo
+    GROUP BY ALL
+  ),
+  daily_agg AS (
+    SELECT
+      installed_day,
+      country_code,
+      fix_tr(NULLIF(NULLIF(campaign, ''), 'None')) AS campaign,
+      fix_tr(NULLIF(NULLIF(media_source, ''), 'None')) AS media_source,
+      days_since_install,
+      day_difference,
+      customer_user_id,
+      unique_session_count,
+      revenue,
+      event_name,
+      operating_system,
+      fix_tr(COALESCE(NULLIF(NULLIF(ad_set, ''), 'None'), campaign)) AS ad_set,
+      fix_tr(COALESCE(NULLIF(NULLIF(ad_name, ''), 'None'), campaign))
+        AS ad_name,
+      content_id
+    FROM
+      events
+  ),
+  agg AS (
+    SELECT
+      DATE(installed_day) AS install_date,
+      country_code AS country,
+      campaign,
+      media_source,
+      operating_system,
+      ad_name,
+      ad_set,
+      ${ai_cleaner_ltv_prediction_metrics.agg_metrics}
+      
+    FROM daily_agg
+    GROUP BY ALL
+  ),
+  daily_joined AS (
+    SELECT
+      COALESCE(DATE(i.install_date), DATE(g.report_day)) AS install_date,
+      COALESCE(i.country, g.country_code) AS country,
+      COALESCE(i.campaign, g.campaign) AS campaign,
+      COALESCE(i.media_source, g.media_source) AS media_source,
+      COALESCE(i.operating_system, g.operating_system) AS operating_system,
+      COALESCE(i.ad_name, g.ad_name) AS ad_name,
+      COALESCE(i.ad_set, g.ad_set) AS ad_set,
+      ROUND(SUM(g.total_cost), 2) AS total_cost,
+      ROUND(SUM(g.total_installs), 2) AS total_installs,
+      SUM(ROUND(g.total_clicks, 2)) AS total_clicks,
+      SUM(ROUND(g.total_impressions, 2)) AS total_impressions,
+      SUM(ROUND(g.total_revenue, 2)) AS total_revenue,
+      ROUND(SAFE_DIVIDE(SUM(total_cost), SUM(total_installs)), 2) AS cpi,
+      ${ai_cleaner_ltv_prediction_metrics.daily_joined_columns}
+    FROM
+      agg i
+    FULL JOIN
+      geo_daily_agg g
+      ON
+        DATE(i.install_date) = DATE(g.report_day)
+        AND i.country = g.country_code
+        AND i.campaign = g.campaign
+        AND i.media_source = g.media_source
+        AND i.operating_system = g.operating_system
+        AND i.ad_set = g.ad_set
+        AND i.ad_name = g.ad_name
+    GROUP BY ALL
+  )
+SELECT
+  dj.* REPLACE (
+    CASE
+      WHEN dj.campaign IS NULL OR TRIM(dj.campaign) = '' THEN 'None'
+      ELSE dj.campaign
+    END AS campaign
+  )
+FROM daily_joined dj
+WHERE NOT (
+  dj.country IS NULL
+  AND COALESCE(dj.total_revenue, 0) = 0
+  AND COALESCE(dj.total_cost, 0) = 0
+)
+

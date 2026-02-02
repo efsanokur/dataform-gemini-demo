@@ -1,0 +1,76 @@
+config {
+    type: "operations",
+    database: `${dataform.projectConfig.vars.rockadsProject}`,
+    name: "ad_names_mapping_table",
+    schema: "thirdparty_datamarts",
+    tags: ['marketing']
+}
+
+TRUNCATE TABLE
+  `${dataform.projectConfig.vars.rockadsProject}.appsflyer.ad_names_mapping_table` ;
+INSERT INTO
+  `${dataform.projectConfig.vars.rockadsProject}.appsflyer.ad_names_mapping_table`
+WITH
+  ads_data AS (
+  SELECT
+    DATE(created_time) AS date,
+    ad_id,
+    ad_name
+  FROM
+    `${dataform.projectConfig.vars.rockadsProject}.fb_airbyte._773901696065588_ads_insights`
+  UNION ALL
+  SELECT
+    DATE(event_time) AS date,
+    af_ad_id AS ad_id,
+    af_ad AS ad_name
+  FROM
+    `${dataform.projectConfig.vars.rockadsProject}.appsflyer.com_videoai_effects_in_app_events`
+  UNION ALL
+  SELECT
+    DATE(event_time) AS date,
+    af_ad_id AS ad_id,
+    af_ad AS ad_name
+  FROM
+    `${dataform.projectConfig.vars.rockadsProject}.appsflyer.id6738990592_in_app_events`
+  UNION ALL
+  SELECT
+    DATE(date) AS date,
+    ad_id,
+    ad AS ad_name
+  FROM
+    `${dataform.projectConfig.vars.rockadsProject}.appsflyer_data_locker_id6738388891.cost_etl_geo` ),
+  ranked_ads AS (
+  SELECT
+    date,
+    ad_id,
+    ad_name,
+    ROW_NUMBER() OVER (PARTITION BY ad_name ORDER BY date DESC, LENGTH(ad_id) DESC ) AS rn
+  FROM
+    ads_data ),
+  longest_ads AS (
+  SELECT
+    date,
+    ad_name,
+    ad_id AS longest_ad_id
+  FROM
+    ranked_ads
+  WHERE
+    rn = 1 ),
+  ranked_names AS (
+  SELECT
+    date,
+    longest_ad_id,
+    ad_name,
+    ROW_NUMBER() OVER (PARTITION BY longest_ad_id ORDER BY date DESC, ad_name DESC ) AS rn
+  FROM
+    longest_ads )
+SELECT
+  longest_ad_id,
+  ad_name,
+  MAX(
+  IF
+    (rn = 1, ad_name, NULL)) OVER (PARTITION BY longest_ad_id) AS most_recent_ad_name
+FROM
+  ranked_names
+WHERE
+  rn = 1

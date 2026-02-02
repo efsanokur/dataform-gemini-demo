@@ -1,0 +1,270 @@
+config {
+  type: "table",
+  database: `${dataform.projectConfig.vars.rockadsProject}`,
+  name: "subscription_retention_cashflow_cohort",
+  schema: "subscription_cohorts",
+  tags: ['rockads_main_analytics_pipeline'],
+  dependencies: ["subscription_names_durations", "user_first_subscriptions"]
+}
+
+WITH ios_subscriber_detailed_report AS (
+SELECT *
+FROM `${dataform.projectConfig.vars.rockadsProject}.subscription_cohorts.user_subscriber_detailed_report`
+WHERE account_number IN ${rockads_analytics_libs.accountNumbersSqlInClause} AND platform = "iOS" AND event_date >= '${rockads_analytics_libs.subscription_mrr_cohort_start_date}'
+),
+
+android_subscriber_detailed_report AS (
+SELECT *
+FROM `${dataform.projectConfig.vars.rockadsProject}.subscription_cohorts.user_subscriber_detailed_report`
+WHERE account_number IN ${rockads_analytics_libs.bucketNamesSqlInClause}
+AND platform = "Android" AND event_date >= '${rockads_analytics_libs.subscription_mrr_cohort_start_date}'
+),
+
+zotlo_subscriber_detailed_report AS (
+SELECT *
+FROM `${dataform.projectConfig.vars.rockadsProject}.subscription_cohorts.user_subscriber_detailed_report`
+WHERE account_number IN ${rockads_analytics_libs.teamNamesSqlInCondition} AND platform = "Web" AND event_date >= '${rockads_analytics_libs.subscription_mrr_cohort_start_date}'
+),
+
+stripe_subscriber_detailed_report AS (
+SELECT *
+FROM `${dataform.projectConfig.vars.rockadsProject}.subscription_cohorts.user_subscriber_detailed_report`
+WHERE account_number IN ("DGT Yazılım") AND platform = "Stripe" AND event_date >= '${rockads_analytics_libs.subscription_mrr_cohort_start_date}'
+),
+
+user_cohorts AS (
+SELECT
+      subscriber_id,
+      account_number,
+      company_name,
+      platform,
+      app_id,
+      DATE_TRUNC(first_subscription_date, MONTH) AS user_cohort
+FROM `${dataform.projectConfig.vars.rockadsProject}.subscription_cohorts.user_first_subscriptions`
+WHERE first_subscription_date >= '${rockads_analytics_libs.subscription_mrr_cohort_start_date}'
+),
+
+subscription_plans AS (
+SELECT
+      account_number,
+      company_name,
+      platform,
+      app_id,
+      app_name,
+      package_id,
+      subscription_bundle_id,
+      standard_subscription_duration,
+      subscription_duration_in_days
+FROM `${dataform.projectConfig.vars.rockadsProject}.subscription_cohorts.subscription_names_durations`
+),
+
+currency_rates AS (
+SELECT
+      date,
+      base_currency,
+      relative_currency,
+      currency_rate
+FROM `${dataform.projectConfig.vars.rockadsProject}.mapping_tables.currency_rates_2*`
+WHERE date >='${rockads_analytics_libs.subscription_mrr_cohort_start_date}'
+)
+
+SELECT
+      uc.company_name,
+      isdr.account_number,
+      sp.app_id,
+      sp.app_name,
+      uc.user_cohort,
+      sp.subscription_bundle_id,
+      sp.standard_subscription_duration,
+      "New" AS subscription_type,
+      IFNULL(c.name, isdr.country) AS country,
+      isdr.platform,
+      -1 AS cohort_month,
+      COUNT(DISTINCT uc.subscriber_id) AS customer_retention,
+      IFNULL(SUM(CASE WHEN CAST(isdr.customer_price AS FLOAT64) > 0 THEN CAST(isdr.customer_price AS FLOAT64)/cr.currency_rate END), 0) AS gross_cashflow,
+      IFNULL(SUM(CASE WHEN CAST(isdr.developer_proceeds AS FLOAT64) > 0 THEN CAST(isdr.developer_proceeds AS FLOAT64)/cr.currency_rate END), 0) AS net_cashflow
+FROM ios_subscriber_detailed_report isdr
+INNER JOIN user_cohorts uc ON isdr.account_number = uc.account_number AND isdr.app_id = uc.app_id AND isdr.subscriber_id = uc.subscriber_id AND isdr.platform = uc.platform
+INNER JOIN subscription_plans sp ON isdr.account_number = sp.account_number AND isdr.app_id = sp.app_id AND isdr.package_id = sp.package_id AND isdr.platform = sp.platform AND sp.company_name=uc.company_name
+LEFT JOIN currency_rates cr ON isdr.event_date = cr.date AND isdr.customer_currency = cr.relative_currency
+LEFT JOIN `${dataform.projectConfig.defaultDatabase}.etl_modules.countries` AS c ON isdr.country = c.short_code
+WHERE ABS(DATE_DIFF(isdr.event_date, uc.user_cohort, MONTH)) = 0
+GROUP BY 1,2,3,4,5,6,7,8,9,10,11
+
+UNION ALL
+
+SELECT
+      uc.company_name,
+      isdr.account_number,
+      sp.app_id,
+      sp.app_name,
+      uc.user_cohort,
+      sp.subscription_bundle_id,
+      sp.standard_subscription_duration,
+      CASE WHEN ABS(DATE_DIFF(isdr.event_date, uc.user_cohort, MONTH)) = 0 THEN "New" ELSE "Recurring" END AS subscription_type,
+      IFNULL(c.name, isdr.country) AS country,
+      isdr.platform,
+      ABS(DATE_DIFF(isdr.event_date, uc.user_cohort, MONTH)) AS cohort_month,
+      COUNT(DISTINCT uc.subscriber_id) AS customer_retention,
+      IFNULL(SUM(CAST(isdr.customer_price AS FLOAT64)/cr.currency_rate), 0) AS gross_cashflow,
+      IFNULL(SUM(CAST(isdr.developer_proceeds AS FLOAT64)/cr.currency_rate), 0) AS net_cashflow
+FROM ios_subscriber_detailed_report isdr
+INNER JOIN user_cohorts uc ON isdr.account_number = uc.account_number AND isdr.app_id = uc.app_id AND isdr.subscriber_id = uc.subscriber_id AND isdr.platform = uc.platform
+INNER JOIN subscription_plans sp ON isdr.account_number = sp.account_number AND isdr.app_id = sp.app_id AND isdr.package_id = sp.package_id AND isdr.platform = sp.platform AND sp.company_name=uc.company_name
+LEFT JOIN currency_rates cr ON isdr.event_date = cr.date AND isdr.customer_currency = cr.relative_currency
+LEFT JOIN `${dataform.projectConfig.defaultDatabase}.etl_modules.countries` AS c ON isdr.country = c.short_code
+WHERE isdr.refund != "Yes"
+GROUP BY 1,2,3,4,5,6,7,8,9,10,11
+
+UNION ALL
+
+SELECT
+      uc.company_name,
+      asdr.account_number,
+      sp.app_id,
+      sp.app_name,
+      uc.user_cohort,
+      sp.subscription_bundle_id,
+      sp.standard_subscription_duration,
+      "New" AS subscription_type,
+      IFNULL(c.name, asdr.country) AS country,
+      asdr.platform,
+      -1 AS cohort_month,
+      COUNT(DISTINCT uc.subscriber_id) AS customer_retention,
+      IFNULL(SUM(CASE WHEN CAST(asdr.customer_price AS FLOAT64) > 0 THEN CAST(asdr.customer_price AS FLOAT64)/cr.currency_rate END), 0) AS gross_cashflow,
+      IFNULL(SUM(CASE WHEN CAST(asdr.developer_proceeds AS FLOAT64) > 0 THEN CAST(asdr.developer_proceeds AS FLOAT64)/cr.currency_rate END), 0) AS net_cashflow
+FROM android_subscriber_detailed_report asdr
+INNER JOIN user_cohorts uc ON asdr.account_number = uc.account_number AND asdr.app_id = uc.app_id AND asdr.subscriber_id = uc.subscriber_id AND asdr.platform = uc.platform
+INNER JOIN subscription_plans sp ON asdr.account_number = sp.account_number AND asdr.app_id = sp.app_id AND asdr.package_id = sp.subscription_bundle_id AND asdr.platform = sp.platform AND sp.company_name=uc.company_name
+LEFT JOIN currency_rates cr ON asdr.event_date = cr.date AND asdr.customer_currency = cr.relative_currency
+LEFT JOIN `${dataform.projectConfig.defaultDatabase}.etl_modules.countries` AS c ON asdr.country = c.short_code
+WHERE ABS(DATE_DIFF(asdr.event_date, uc.user_cohort, MONTH)) = 0
+GROUP BY 1,2,3,4,5,6,7,8,9,10,11
+
+UNION ALL
+
+SELECT
+      uc.company_name,
+      asdr.account_number,
+      sp.app_id,
+      sp.app_name,
+      uc.user_cohort,
+      sp.subscription_bundle_id,
+      sp.standard_subscription_duration,
+      CASE WHEN ABS(DATE_DIFF(asdr.event_date, uc.user_cohort, MONTH)) = 0 THEN "New" ELSE "Recurring" END AS subscription_type,
+      IFNULL(c.name, asdr.country) AS country,
+      asdr.platform,
+      ABS(DATE_DIFF(asdr.event_date, uc.user_cohort, MONTH)) AS cohort_month,
+      COUNT(DISTINCT uc.subscriber_id) AS customer_retention,
+      IFNULL(SUM(CAST(asdr.customer_price AS FLOAT64)/cr.currency_rate), 0) AS gross_cashflow,
+      IFNULL(SUM(CAST(asdr.developer_proceeds AS FLOAT64)/cr.currency_rate), 0) AS net_cashflow
+FROM android_subscriber_detailed_report asdr
+INNER JOIN user_cohorts uc ON asdr.account_number = uc.account_number AND asdr.app_id = uc.app_id AND asdr.subscriber_id = uc.subscriber_id AND asdr.platform = uc.platform
+INNER JOIN subscription_plans sp ON asdr.account_number = sp.account_number AND asdr.app_id = sp.app_id AND asdr.package_id = sp.subscription_bundle_id AND asdr.platform = sp.platform AND sp.company_name=uc.company_name
+LEFT JOIN currency_rates cr ON asdr.event_date = cr.date AND asdr.customer_currency = cr.relative_currency
+LEFT JOIN `${dataform.projectConfig.defaultDatabase}.etl_modules.countries` AS c ON asdr.country = c.short_code
+WHERE asdr.refund = "Charged"
+GROUP BY 1,2,3,4,5,6,7,8,9,10,11
+
+UNION ALL
+
+SELECT
+      uc.company_name,
+      zsdr.account_number,
+      sp.app_name,
+      sp.app_name,
+      uc.user_cohort,
+      sp.subscription_bundle_id,
+      sp.standard_subscription_duration,
+      "New" AS subscription_type,
+      IFNULL(c.name, zsdr.country) AS country,
+      zsdr.platform,
+      -1 AS cohort_month,
+      COUNT(DISTINCT uc.subscriber_id) AS customer_retention,
+      IFNULL(SUM(CASE WHEN CAST(zsdr.customer_price AS FLOAT64) > 0 THEN CAST(zsdr.customer_price AS FLOAT64)/cr.currency_rate END), 0) AS gross_cashflow,
+      IFNULL(SUM(CASE WHEN CAST(zsdr.developer_proceeds AS FLOAT64) > 0 THEN CAST(zsdr.developer_proceeds AS FLOAT64)/cr.currency_rate END), 0) AS net_cashflow
+FROM zotlo_subscriber_detailed_report zsdr
+INNER JOIN user_cohorts uc ON zsdr.account_number = uc.account_number AND zsdr.app_id = uc.app_id AND zsdr.subscriber_id = uc.subscriber_id AND zsdr.platform = uc.platform
+INNER JOIN (SELECT distinct account_number, app_name, package_id, subscription_bundle_id, platform, company_name, standard_subscription_duration FROM subscription_plans) sp ON zsdr.account_number = sp.account_number AND zsdr.app_id = sp.app_name AND zsdr.package_id = sp.subscription_bundle_id AND zsdr.platform = sp.platform AND sp.company_name=uc.company_name
+LEFT JOIN currency_rates cr ON zsdr.event_date = cr.date AND zsdr.customer_currency = cr.relative_currency
+LEFT JOIN `${dataform.projectConfig.defaultDatabase}.etl_modules.countries` AS c ON zsdr.country = c.short_code
+WHERE ABS(DATE_DIFF(zsdr.event_date, uc.user_cohort, MONTH)) = 0
+GROUP BY 1,2,3,4,5,6,7,8,9,10,11
+
+UNION ALL
+
+SELECT
+      uc.company_name,
+      zsdr.account_number,
+      sp.app_name,
+      sp.app_name,
+      uc.user_cohort,
+      sp.subscription_bundle_id,
+      sp.standard_subscription_duration,
+      CASE WHEN ABS(DATE_DIFF(zsdr.event_date, uc.user_cohort, MONTH)) = 0 THEN "New" ELSE "Recurring" END AS subscription_type,
+      IFNULL(c.name, zsdr.country) AS country,
+      zsdr.platform,
+      ABS(DATE_DIFF(zsdr.event_date, uc.user_cohort, MONTH)) AS cohort_month,
+      COUNT(DISTINCT uc.subscriber_id) AS customer_retention,
+      IFNULL(SUM(CAST(zsdr.customer_price AS FLOAT64)/cr.currency_rate), 0) AS gross_cashflow,
+      IFNULL(SUM(CAST(zsdr.developer_proceeds AS FLOAT64)/cr.currency_rate), 0) AS net_cashflow
+FROM zotlo_subscriber_detailed_report zsdr
+INNER JOIN user_cohorts uc ON zsdr.account_number = uc.account_number AND zsdr.app_id = uc.app_id AND zsdr.subscriber_id = uc.subscriber_id AND zsdr.platform = uc.platform
+INNER JOIN (SELECT distinct account_number, app_name, package_id, subscription_bundle_id, platform, company_name, standard_subscription_duration FROM subscription_plans) sp ON zsdr.account_number = sp.account_number AND zsdr.app_id = sp.app_name AND zsdr.package_id = sp.subscription_bundle_id AND zsdr.platform = sp.platform AND sp.company_name=uc.company_name
+LEFT JOIN currency_rates cr ON zsdr.event_date = cr.date AND zsdr.customer_currency = cr.relative_currency
+LEFT JOIN `${dataform.projectConfig.defaultDatabase}.etl_modules.countries` AS c ON zsdr.country = c.short_code
+WHERE zsdr.refund = "Charged"
+GROUP BY 1,2,3,4,5,6,7,8,9,10,11
+
+UNION ALL
+
+SELECT
+      uc.company_name,
+      ssdr.account_number,
+      sp.app_id,
+      sp.app_name,
+      uc.user_cohort,
+      sp.subscription_bundle_id,
+      sp.standard_subscription_duration,
+      "New" AS subscription_type,
+      IFNULL(c.name, ssdr.country) AS country,
+      ssdr.platform,
+      -1 AS cohort_month,
+      COUNT(DISTINCT uc.subscriber_id) AS customer_retention,
+      IFNULL(SUM(CASE WHEN CAST(ssdr.customer_price AS FLOAT64) > 0 THEN CAST(ssdr.customer_price AS FLOAT64)/cr.currency_rate END), 0) AS gross_cashflow,
+      IFNULL(SUM(CASE WHEN CAST(ssdr.developer_proceeds AS FLOAT64) > 0 THEN CAST(ssdr.developer_proceeds AS FLOAT64)/cr.currency_rate END), 0) AS net_cashflow
+FROM stripe_subscriber_detailed_report ssdr
+INNER JOIN user_cohorts uc ON ssdr.account_number = uc.account_number AND ssdr.app_id = uc.app_id AND ssdr.subscriber_id = uc.subscriber_id AND ssdr.platform = uc.platform
+INNER JOIN subscription_plans sp ON ssdr.account_number = sp.account_number AND ssdr.app_id = sp.app_id AND ssdr.package_id = sp.subscription_bundle_id AND ssdr.platform = sp.platform AND sp.company_name=uc.company_name
+LEFT JOIN currency_rates cr ON ssdr.event_date = cr.date AND ssdr.customer_currency = cr.relative_currency
+LEFT JOIN `${dataform.projectConfig.defaultDatabase}.etl_modules.countries` AS c ON ssdr.country = c.short_code
+WHERE ABS(DATE_DIFF(ssdr.event_date, uc.user_cohort, MONTH)) = 0
+GROUP BY 1,2,3,4,5,6,7,8,9,10,11
+
+UNION ALL
+
+SELECT
+      uc.company_name,
+      ssdr.account_number,
+      sp.app_id,
+      sp.app_name,
+      uc.user_cohort,
+      sp.subscription_bundle_id,
+      sp.standard_subscription_duration,
+      CASE WHEN ABS(DATE_DIFF(ssdr.event_date, uc.user_cohort, MONTH)) = 0 THEN "New" ELSE "Recurring" END AS subscription_type,
+      IFNULL(c.name, ssdr.country) AS country,
+      ssdr.platform,
+      ABS(DATE_DIFF(ssdr.event_date, uc.user_cohort, MONTH)) AS cohort_month,
+      COUNT(DISTINCT uc.subscriber_id) AS customer_retention,
+      IFNULL(SUM(CAST(ssdr.customer_price AS FLOAT64)/cr.currency_rate), 0) AS gross_cashflow,
+      IFNULL(SUM(CAST(ssdr.developer_proceeds AS FLOAT64)/cr.currency_rate), 0) AS net_cashflow
+FROM stripe_subscriber_detailed_report ssdr
+INNER JOIN user_cohorts uc ON ssdr.account_number = uc.account_number AND ssdr.app_id = uc.app_id AND ssdr.subscriber_id = uc.subscriber_id AND ssdr.platform = uc.platform
+INNER JOIN subscription_plans sp ON ssdr.account_number = sp.account_number AND ssdr.app_id = sp.app_id AND ssdr.package_id = sp.subscription_bundle_id AND ssdr.platform = sp.platform AND sp.company_name=uc.company_name
+LEFT JOIN currency_rates cr ON ssdr.event_date = cr.date AND ssdr.customer_currency = cr.relative_currency
+LEFT JOIN `${dataform.projectConfig.defaultDatabase}.etl_modules.countries` AS c ON ssdr.country = c.short_code
+WHERE ssdr.refund = "Charged"
+GROUP BY 1,2,3,4,5,6,7,8,9,10,11
+
+
+

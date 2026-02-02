@@ -1,0 +1,70 @@
+
+config {
+  type: "table",
+    bigquery: {
+    partitionBy: "report_date"
+  },
+  database: `${dataform.projectConfig.vars.rockadsProject}`,
+  name: "id6473276045_activity_union",
+  schema: "id6473276045_appsflyer_ds",
+  dependencies: ['id6473276045_organic_activity_combined_metrics_unique_dm', 'id6473276045_activity_combined_metrics_unique_dm'],
+  tags: ['appsflyer_id6473276045_main']
+}
+
+  SELECT
+    report_date,
+    app_id,
+    geo,
+    campaign,
+    af_adset,
+    ad,
+    media_source,
+    appsflyer_os_id,
+    -- Total event revenues
+    SUM(activity_revenue_paywallShowed) AS activity_revenue_paywallShowed,
+    SUM(activity_revenue_paymentInit) AS activity_revenue_paymentInit,
+    SUM(activity_revenue_rc_renewal_event) AS activity_revenue_rc_renewal_event,
+    SUM(activity_revenue_rc_trial_converted_event) AS activity_revenue_rc_trial_converted_event,
+    SUM(activity_revenue_rc_expiration_event) AS activity_revenue_rc_expiration_event,
+    SUM(activity_revenue_rc_cancellation_event) AS activity_revenue_rc_cancellation_event,
+    SUM(activity_revenue_rc_billing_issue_event) AS activity_revenue_rc_billing_issue_event,
+    SUM(activity_revenue_rc_initial_purchase_event) AS activity_revenue_rc_initial_purchase_event,
+    SUM(activity_revenue_rc_product_change_event) AS activity_revenue_rc_product_change_event,
+    SUM(activity_revenue_rc_trial_started_event) AS activity_revenue_rc_trial_started_event,
+    SUM(activity_revenue_rc_trial_cancelled_event) AS activity_revenue_rc_trial_cancelled_event,
+    SUM(activity_revenue_WebToAppInstall) AS activity_revenue_WebToAppInstall,
+    SUM(activity_revenue_rc_non_subscription_purchase_event) AS activity_revenue_rc_non_subscription_purchase_event,
+    SUM(activity_revenue_af_purchase) AS activity_revenue_af_purchase,
+    SUM(activity_revenue_package_purchase) AS activity_revenue_package_purchase,
+    SUM(activity_revenue_zt_payment_succes) AS activity_revenue_zt_payment_succes,
+    SUM(activity_event_count_paywallShowed) AS activity_event_count_paywallShowed,
+    SUM(activity_event_count_paymentInit) AS activity_event_count_paymentInit,
+    SUM(activity_event_count_rc_renewal_event) AS activity_event_count_rc_renewal_event,
+    SUM(activity_event_count_rc_trial_converted_event) AS activity_event_count_rc_trial_converted_event,
+    SUM(activity_event_count_rc_expiration_event) AS activity_event_count_rc_expiration_event,
+    SUM(activity_event_count_rc_cancellation_event) AS activity_event_count_rc_cancellation_event,
+    SUM(activity_event_count_rc_billing_issue_event) AS activity_event_count_rc_billing_issue_event,
+    SUM(activity_event_count_rc_initial_purchase_event) AS activity_event_count_rc_initial_purchase_event,
+    SUM(activity_event_count_rc_product_change_event) AS activity_event_count_rc_product_change_event,
+    SUM(activity_event_count_rc_trial_started_event) AS activity_event_count_rc_trial_started_event,
+    SUM(activity_event_count_rc_trial_cancelled_event) AS activity_event_count_rc_trial_cancelled_event,
+    SUM(activity_event_count_WebToAppInstall) AS activity_event_count_WebToAppInstall,
+    SUM(activity_event_count_rc_non_subscription_purchase_event) AS activity_event_count_rc_non_subscription_purchase_event,
+    SUM(activity_event_count_af_purchase) AS activity_event_count_af_purchase,
+    SUM(activity_event_count_package_purchase) AS activity_event_count_package_purchase,
+    SUM(activity_event_count_zt_payment_succes) AS activity_event_count_zt_payment_succes,
+
+    -- Revenue
+    SUM(activity_event_revenue) AS activity_event_revenue
+  FROM(
+    SELECT *
+  FROM
+    ${dataform.projectConfig.vars.rockadsProject}.id6473276045_appsflyer_ds.id6473276045_activity_combined_metrics_unique_dm
+  UNION ALL
+  SELECT
+    *
+  FROM
+    ${dataform.projectConfig.vars.rockadsProject}.id6473276045_appsflyer_ds.id6473276045_organic_activity_combined_metrics_unique_dm
+  )
+  GROUP BY
+    ALL

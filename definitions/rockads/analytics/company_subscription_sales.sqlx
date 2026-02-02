@@ -1,0 +1,135 @@
+config {
+  type: "table",
+  database: `${dataform.projectConfig.vars.rockadsProject}`,
+  name: "company_subscription_sales",
+  schema: "company_stats",
+  tags: ['rockads_main_analytics_pipeline'],
+  dependencies: ["subscription_mrr_cohort", "subscription_retention_cashflow_cohort"]
+}
+
+WITH ios_subscriber_detailed_report AS (
+SELECT *
+FROM `${dataform.projectConfig.vars.rockadsProject}.subscription_cohorts.user_subscriber_detailed_report`
+WHERE account_number IN ${rockads_analytics_libs.accountNumbersSqlInClause} AND platform = "iOS"
+),
+
+android_subscriber_detailed_report AS (
+SELECT *
+FROM `${dataform.projectConfig.vars.rockadsProject}.subscription_cohorts.user_subscriber_detailed_report`
+WHERE account_number IN ${rockads_analytics_libs.bucketNamesSqlInClause}
+AND platform = "Android"
+),
+
+zotlo_subscriber_detailed_report AS (
+SELECT *
+FROM `${dataform.projectConfig.vars.rockadsProject}.subscription_cohorts.user_subscriber_detailed_report`
+WHERE account_number IN ${rockads_analytics_libs.teamNamesSqlInCondition} AND platform = "Web"
+),
+
+stripe_subscriber_detailed_report AS (
+SELECT *
+FROM `${dataform.projectConfig.vars.rockadsProject}.subscription_cohorts.user_subscriber_detailed_report`
+WHERE account_number IN ("DGT Yazılım") AND platform = "Stripe"
+),
+
+user_first_subscriptions AS (
+SELECT *
+FROM `${dataform.projectConfig.vars.rockadsProject}.subscription_cohorts.user_first_subscriptions`
+),
+
+subscription_plans AS (
+SELECT *
+FROM `${dataform.projectConfig.vars.rockadsProject}.subscription_cohorts.subscription_names_durations`
+),
+
+country_names AS (
+SELECT * FROM `${dataform.projectConfig.vars.rockadsProject}.mapping_tables.countries`
+),
+
+currency_rates AS (
+SELECT *
+FROM `${dataform.projectConfig.vars.rockadsProject}.mapping_tables.currency_rates_*`
+)
+
+SELECT
+      isdr.event_date AS date,
+      sp.company_name AS company,
+      sp.app_name,
+      isdr.platform,
+      c.name AS country_name,
+      sp.subscription_bundle_id AS package_id,
+      CASE WHEN isdr.event_date > ufs.first_subscription_date THEN "Renewal" ELSE "New" END AS user_type,
+      SUM(isdr.customer_price / (CASE WHEN isdr.customer_currency = 'USD' THEN 1 ELSE cr.currency_rate end)) AS sales,
+      SUM(isdr.developer_proceeds / (CASE WHEN isdr.customer_currency = 'USD' THEN 1 ELSE cr.currency_rate end)) AS proceeds,
+      SUM(CASE WHEN isdr.refund != "Yes" THEN 1 ELSE 0 END) AS sales_count,
+      SUM(CASE WHEN isdr.refund = "Yes" THEN  1 ELSE 0 END) AS refund_count
+FROM ios_subscriber_detailed_report isdr
+INNER JOIN user_first_subscriptions ufs ON isdr.account_number = ufs.account_number AND isdr.app_id = ufs.app_id AND isdr.subscriber_id = ufs.subscriber_id AND isdr.platform = ufs.platform
+INNER JOIN subscription_plans sp ON isdr.account_number = sp.account_number AND isdr.app_id = sp.app_id AND isdr.package_id = sp.package_id AND isdr.platform = sp.platform
+LEFT JOIN currency_rates cr ON isdr.event_date = cr.date AND isdr.customer_currency = cr.relative_currency
+LEFT JOIN country_names c on isdr.country = c.short_code
+GROUP BY 1,2,3,4,5,6,7
+
+UNION ALL
+
+SELECT
+      asdr.event_date AS date,
+      sp.company_name AS company,
+      sp.app_name,
+      asdr.platform,
+      c.name AS country_name,
+      sp.subscription_bundle_id AS package_id,
+      CASE WHEN asdr.event_date > ufs.first_subscription_date THEN "Renewal" ELSE "New" END AS user_type,
+      SUM(asdr.customer_price / (CASE WHEN asdr.customer_currency = 'USD' THEN 1 ELSE cr.currency_rate end)) AS sales,
+      SUM(asdr.developer_proceeds / (CASE WHEN asdr.customer_currency = 'USD' THEN 1 ELSE cr.currency_rate end)) AS proceeds,
+      SUM(CASE WHEN asdr.refund =  "Charged" THEN  1 ELSE 0 END) AS sales_count,
+      SUM(CASE WHEN asdr.refund != "Charged" THEN  1 ELSE 0 END) AS refund_count
+FROM android_subscriber_detailed_report asdr
+INNER JOIN user_first_subscriptions ufs ON asdr.account_number = ufs.account_number AND asdr.app_id = ufs.app_id AND asdr.subscriber_id = ufs.subscriber_id AND asdr.platform = ufs.platform
+INNER JOIN subscription_plans sp ON asdr.account_number = sp.account_number AND asdr.app_id = sp.app_id AND asdr.package_id = sp.subscription_bundle_id AND asdr.platform = sp.platform
+LEFT JOIN currency_rates cr ON asdr.event_date = cr.date AND asdr.customer_currency = cr.relative_currency
+LEFT JOIN country_names c on asdr.country = c.short_code
+GROUP BY 1,2,3,4,5,6,7
+
+UNION ALL
+
+SELECT
+      zsdr.event_date AS date,
+      sp.company_name AS company,
+      sp.app_name,
+      zsdr.platform,
+      c.name AS country_name,
+      sp.subscription_bundle_id AS package_id,
+      CASE WHEN zsdr.event_date > ufs.first_subscription_date THEN "Renewal" ELSE "New" END AS user_type,
+      SUM(zsdr.customer_price / (CASE WHEN zsdr.customer_currency = 'USD' THEN 1 ELSE cr.currency_rate end)) AS sales,
+      SUM(zsdr.developer_proceeds / (CASE WHEN zsdr.customer_currency = 'USD' THEN 1 ELSE cr.currency_rate end)) AS proceeds,
+      SUM(CASE WHEN zsdr.refund =  "Charged" THEN  1 ELSE 0 END) AS sales_count,
+      SUM(CASE WHEN zsdr.refund != "Charged" THEN  1 ELSE 0 END) AS refund_count
+FROM zotlo_subscriber_detailed_report zsdr
+INNER JOIN user_first_subscriptions ufs ON zsdr.account_number = ufs.account_number AND zsdr.app_id = ufs.app_id AND zsdr.subscriber_id = ufs.subscriber_id AND zsdr.platform = ufs.platform
+INNER JOIN (SELECT distinct account_number, app_name, package_id, subscription_bundle_id, platform, company_name FROM subscription_plans) sp ON zsdr.account_number = sp.account_number AND zsdr.app_id = sp.app_name AND zsdr.package_id = sp.subscription_bundle_id AND zsdr.platform = sp.platform
+LEFT JOIN currency_rates cr ON zsdr.event_date = cr.date AND zsdr.customer_currency = cr.relative_currency
+LEFT JOIN country_names c on zsdr.country = c.short_code
+GROUP BY 1,2,3,4,5,6,7
+
+UNION ALL
+
+SELECT
+      ssdr.event_date AS date,
+      sp.company_name AS company,
+      sp.app_name,
+      ssdr.platform,
+      c.name AS country_name,
+      sp.subscription_bundle_id AS package_id,
+      CASE WHEN ssdr.event_date > ufs.first_subscription_date THEN "Renewal" ELSE "New" END AS user_type,
+      SUM(ssdr.customer_price / (CASE WHEN ssdr.customer_currency = 'USD' THEN 1 ELSE cr.currency_rate end)) AS sales,
+      SUM(ssdr.developer_proceeds / (CASE WHEN ssdr.customer_currency = 'USD' THEN 1 ELSE cr.currency_rate end)) AS proceeds,
+      SUM(CASE WHEN ssdr.refund =  "Charged" THEN  1 ELSE 0 END) AS sales_count,
+      SUM(CASE WHEN ssdr.refund != "Charged" THEN  1 ELSE 0 END) AS refund_count
+FROM stripe_subscriber_detailed_report ssdr
+INNER JOIN user_first_subscriptions ufs ON ssdr.account_number = ufs.account_number AND ssdr.app_id = ufs.app_id AND ssdr.subscriber_id = ufs.subscriber_id AND ssdr.platform = ufs.platform
+INNER JOIN subscription_plans sp ON ssdr.account_number = sp.account_number AND ssdr.app_id = sp.app_id AND ssdr.package_id = sp.subscription_bundle_id AND ssdr.platform = sp.platform
+LEFT JOIN currency_rates cr ON ssdr.event_date = cr.date AND ssdr.customer_currency = cr.relative_currency
+LEFT JOIN country_names c on ssdr.country = c.short_code
+GROUP BY 1,2,3,4,5,6,7
+

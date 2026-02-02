@@ -1,0 +1,178 @@
+config {
+  type: "table",
+  database: `${dataform.projectConfig.vars.rockadsProject}`,
+  name: "ads_audience_reports_by_country_merged_id6738990592",
+  schema: "tiktok_airbyte_datamarts",
+  tags: ["tiktok_airbyte_etl"]
+}
+
+SELECT
+  DATE(base.stat_time_day) AS stat_time_day,
+  base.ad_id,
+  JSON_VALUE(base.metrics, '$.adgroup_id') AS adgroup_id,
+  JSON_VALUE(base.metrics, '$.campaign_id') AS campaign_id,
+  country_code,
+  "7467431811208151041" AS advertiser_id,
+  JSON_VALUE(base.metrics, '$.ad_name') AS ad_name,
+  JSON_VALUE(base.metrics, '$.adgroup_name') AS adgroup_name,
+  JSON_VALUE(base.metrics, '$.campaign_name') AS campaign_name,
+  IFNULL(video_cover_url, thu.thumbnail_url) AS video_thumbnail_url,
+  CASE
+    WHEN tiktok_item_id IS NULL THEN preview_url
+    WHEN preview_url IS NOT NULL THEN preview_url
+  ELSE
+  CONCAT("https://www.tiktok.com/player/v1/", tiktok_item_id, "?id=", tiktok_item_id)
+END
+  AS video_url,
+  CAST(JSON_VALUE(base.metrics, '$.spend')AS FLOAT64) AS spend,
+  CAST(JSON_VALUE(base.metrics, '$.impressions')AS INT64) AS impressions,
+  CAST(JSON_VALUE(base.metrics, '$.clicks')AS INT64) AS clicks,
+  CAST(JSON_VALUE(base.metrics, '$.ctr')AS FLOAT64) AS ctr
+FROM
+  `${dataform.projectConfig.vars.rockadsProject}.tiktok_airbyte._7467431811208151041_ads_audience_reports_by_country_daily` base
+LEFT JOIN
+  `${dataform.projectConfig.vars.rockadsProject}.tiktok_airbyte._7467431811208151041_ads` ads
+ON
+  base.ad_id = ads.ad_id
+LEFT JOIN
+  `${dataform.projectConfig.vars.rockadsProject}.tiktok_airbyte._7467431811208151041_creative_assets_videos` assets
+ON
+  ads.video_id = assets.video_id
+LEFT JOIN (SELECT ad_id, thumbnail_url FROM`rockads-thirdparty.tiktok_spark_thumbnails._7467431811208151041_thumbnails`)  thu
+ON
+  base.ad_id=thu.ad_id
+UNION ALL
+SELECT
+  DATE(base.stat_time_day) AS stat_time_day,
+  base.ad_id,
+  JSON_VALUE(base.metrics, '$.adgroup_id') AS adgroup_id,
+  JSON_VALUE(base.metrics, '$.campaign_id') AS campaign_id,
+  country_code,
+  "7480500085873475585" AS advertiser_id,
+  JSON_VALUE(base.metrics, '$.ad_name') AS ad_name,
+  JSON_VALUE(base.metrics, '$.adgroup_name') AS adgroup_name,
+  JSON_VALUE(base.metrics, '$.campaign_name') AS campaign_name,
+  IFNULL(video_cover_url, thu.thumbnail_url) AS video_thumbnail_url,
+  CASE
+    WHEN tiktok_item_id IS NULL THEN preview_url
+    WHEN preview_url IS NOT NULL THEN preview_url
+  ELSE
+  CONCAT("https://www.tiktok.com/player/v1/",tiktok_item_id,"?id=",tiktok_item_id)
+END
+  AS video_url,
+  CAST(JSON_VALUE(base.metrics, '$.spend')AS FLOAT64) AS spend,
+  CAST(JSON_VALUE(base.metrics, '$.impressions')AS INT64) AS impressions,
+  CAST(JSON_VALUE(base.metrics, '$.clicks')AS INT64) AS clicks,
+  CAST(JSON_VALUE(base.metrics, '$.ctr')AS FLOAT64) AS ctr
+FROM
+  `${dataform.projectConfig.vars.rockadsProject}.tiktok_airbyte._7480500085873475585_ads_audience_reports_by_country_daily` base
+LEFT JOIN
+  `${dataform.projectConfig.vars.rockadsProject}.tiktok_airbyte._7480500085873475585_ads` ads
+ON
+  base.ad_id = ads.ad_id
+LEFT JOIN
+  `${dataform.projectConfig.vars.rockadsProject}.tiktok_airbyte._7480500085873475585_creative_assets_videos` assets
+ON
+  ads.video_id = assets.video_id
+LEFT JOIN (SELECT ad_id, thumbnail_url FROM`rockads-thirdparty.tiktok_spark_thumbnails._7480500085873475585_thumbnails`)  thu
+ON
+  base.ad_id=thu.ad_id
+UNION ALL
+SELECT
+  DATE(base.stat_time_day) AS stat_time_day,
+  base.ad_id,
+  JSON_VALUE(base.metrics, '$.adgroup_id') AS adgroup_id,
+  JSON_VALUE(base.metrics, '$.campaign_id') AS campaign_id,
+  country_code,
+  "7540553363537100816" AS advertiser_id,
+  JSON_VALUE(base.metrics, '$.ad_name') AS ad_name,
+  JSON_VALUE(base.metrics, '$.adgroup_name') AS adgroup_name,
+  JSON_VALUE(base.metrics, '$.campaign_name') AS campaign_name,
+  video_cover_url AS video_thumbnail_url,
+  CASE
+    WHEN tiktok_item_id IS NULL THEN preview_url
+    WHEN preview_url IS NOT NULL THEN preview_url
+  ELSE
+  CONCAT("https://www.tiktok.com/player/v1/",tiktok_item_id,"?id=",tiktok_item_id)
+END
+  AS video_url,
+  CAST(JSON_VALUE(base.metrics, '$.spend')AS FLOAT64) AS spend,
+  CAST(JSON_VALUE(base.metrics, '$.impressions')AS INT64) AS impressions,
+  CAST(JSON_VALUE(base.metrics, '$.clicks')AS INT64) AS clicks,
+  CAST(JSON_VALUE(base.metrics, '$.ctr')AS FLOAT64) AS ctr
+FROM
+  `${dataform.projectConfig.vars.rockadsProject}.tiktok_airbyte._7540553363537100816_ads_audience_reports_by_country_daily` base
+LEFT JOIN
+  `${dataform.projectConfig.vars.rockadsProject}.tiktok_airbyte._7540553363537100816_ads` ads
+ON
+  base.ad_id = ads.ad_id
+LEFT JOIN
+  `${dataform.projectConfig.vars.rockadsProject}.tiktok_airbyte._7540553363537100816_creative_assets_videos` assets
+ON
+  ads.video_id = assets.video_id
+UNION ALL
+SELECT
+  DATE(base.stat_time_day) AS stat_time_day,
+  base.ad_id,
+  JSON_VALUE(base.metrics, '$.adgroup_id') AS adgroup_id,
+  JSON_VALUE(base.metrics, '$.campaign_id') AS campaign_id,
+  country_code,
+  "7540553240996478992" AS advertiser_id,
+  JSON_VALUE(base.metrics, '$.ad_name') AS ad_name,
+  JSON_VALUE(base.metrics, '$.adgroup_name') AS adgroup_name,
+  JSON_VALUE(base.metrics, '$.campaign_name') AS campaign_name,
+  video_cover_url AS video_thumbnail_url,
+  CASE
+    WHEN tiktok_item_id IS NULL THEN preview_url
+    WHEN preview_url IS NOT NULL THEN preview_url
+  ELSE
+  CONCAT("https://www.tiktok.com/player/v1/",tiktok_item_id,"?id=",tiktok_item_id)
+END
+  AS video_url,
+  CAST(JSON_VALUE(base.metrics, '$.spend')AS FLOAT64) AS spend,
+  CAST(JSON_VALUE(base.metrics, '$.impressions')AS INT64) AS impressions,
+  CAST(JSON_VALUE(base.metrics, '$.clicks')AS INT64) AS clicks,
+  CAST(JSON_VALUE(base.metrics, '$.ctr')AS FLOAT64) AS ctr
+FROM
+  `${dataform.projectConfig.vars.rockadsProject}.tiktok_airbyte._7540553240996478992_ads_audience_reports_by_country_daily` base
+LEFT JOIN
+  `${dataform.projectConfig.vars.rockadsProject}.tiktok_airbyte._7540553240996478992_ads` ads
+ON
+  base.ad_id = ads.ad_id
+LEFT JOIN
+  `${dataform.projectConfig.vars.rockadsProject}.tiktok_airbyte._7540553240996478992_creative_assets_videos` assets
+ON
+  ads.video_id = assets.video_id
+UNION ALL
+SELECT
+  DATE(base.stat_time_day) AS stat_time_day,
+  base.ad_id,
+  JSON_VALUE(base.metrics, '$.adgroup_id') AS adgroup_id,
+  JSON_VALUE(base.metrics, '$.campaign_id') AS campaign_id,
+  country_code,
+  "7540553142787325968" AS advertiser_id,
+  JSON_VALUE(base.metrics, '$.ad_name') AS ad_name,
+  JSON_VALUE(base.metrics, '$.adgroup_name') AS adgroup_name,
+  JSON_VALUE(base.metrics, '$.campaign_name') AS campaign_name,
+  video_cover_url AS video_thumbnail_url,
+  CASE
+    WHEN tiktok_item_id IS NULL THEN preview_url
+    WHEN preview_url IS NOT NULL THEN preview_url
+  ELSE
+  CONCAT("https://www.tiktok.com/player/v1/",tiktok_item_id,"?id=",tiktok_item_id)
+END
+  AS video_url,
+  CAST(JSON_VALUE(base.metrics, '$.spend')AS FLOAT64) AS spend,
+  CAST(JSON_VALUE(base.metrics, '$.impressions')AS INT64) AS impressions,
+  CAST(JSON_VALUE(base.metrics, '$.clicks')AS INT64) AS clicks,
+  CAST(JSON_VALUE(base.metrics, '$.ctr')AS FLOAT64) AS ctr
+FROM
+  `${dataform.projectConfig.vars.rockadsProject}.tiktok_airbyte._7540553142787325968_ads_audience_reports_by_country_daily` base
+LEFT JOIN
+  `${dataform.projectConfig.vars.rockadsProject}.tiktok_airbyte._7540553142787325968_ads` ads
+ON
+  base.ad_id = ads.ad_id
+LEFT JOIN
+  `${dataform.projectConfig.vars.rockadsProject}.tiktok_airbyte._7540553142787325968_creative_assets_videos` assets
+ON
+  ads.video_id = assets.video_id

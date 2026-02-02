@@ -1,0 +1,34 @@
+config {
+  type: "table",
+    bigquery: {
+    partitionBy: "event_date",
+    clusterBy: ["country_code"]
+  },
+  database: `${dataform.projectConfig.vars.rockadsProject}`,
+  name: "id6736979983_distinct_organic_ad_revenue_v2",
+  schema: "id6736979983_appsflyer_ds",
+  tags: ['appsflyer_id6736979983_main']
+}
+
+
+
+ WITH main_raw_data AS (
+
+-- Attribute
+SELECT
+  campaign, af_adset, af_ad, af_ad_id, event_name,IF(media_source = 'restricted', 'Facebook Ads', media_source) as media_source,
+  REPLACE(app_id, '.', '_') as appsflyer_os_id,
+  country_code,appsflyer_id,
+  IFNULL(SAFE_CAST(NULLIF(event_revenue_usd, '') AS FLOAT64),  SAFE_CAST(NULLIF(event_revenue, '') AS FLOAT64)) AS event_revenue,
+  DATE(install_time) as event_date,
+  DATE(event_time) as event_time
+
+FROM
+  `rockads-thirdparty.appsflyer_data_locker_id6738388891.organic_ad_revenue_v2`
+
+WHERE event_name = 'af_ad_revenue' and REPLACE(app_id, '.', '_') in ('com_shorten', 'id6736979983')
+QUALIFY
+    ROW_NUMBER() OVER(PARTITION BY install_time,event_time,ad_unit,monetization_network,placement,app_id, media_source, campaign, af_adset, af_ad, af_adset, country_code ORDER BY TIMESTAMP_TRUNC(_dl_partition_time, DAY) DESC, version DESC) = 1
+)
+
+SELECT * FROM main_raw_data

@@ -1,0 +1,65 @@
+config {
+  type: "table",
+    bigquery: {
+    partitionBy: "event_date",
+    clusterBy: ["country_code"]
+  },
+  database: `${dataform.projectConfig.vars.rockadsProject}`,
+  name: "id1363478842_activity_revenues",
+  schema: "id1363478842_appsflyer_ds",
+  tags: ['appsflyer_id1363478842_main']
+}
+
+WITH
+  main_raw_data AS (
+  SELECT
+    campaign,
+    af_adset,
+    af_ad,
+    af_ad_id,
+    CASE WHEN media_source in ('facebook','restricted') then 'Facebook Ads' ELSE media_source end as media_source,
+    'id1363478842' as appsflyer_os_id,
+    country_code,
+    DATE(event_time) AS event_date,
+    CAST(JSON_EXTRACT_SCALAR(event_value, '$.af_price')AS FLOAT64) AS event_value_af_price,
+    CAST(JSON_EXTRACT_SCALAR(event_value, '$.af_revenue')AS FLOAT64) AS event_value_af_revenue,
+    CAST(event_revenue AS FLOAT64) event_revenue
+  FROM
+    `${dataform.projectConfig.vars.rockadsProject}.appsflyer.id1363478842_in_app_events`
+   UNION ALL
+ SELECT
+    campaign,
+    af_adset,
+    af_ad,
+    af_ad_id,
+    CASE WHEN media_source in ('facebook','restricted') then 'Facebook Ads' ELSE media_source end as media_source,
+    'com_positivise_moyra' as appsflyer_os_id,
+    country_code,
+    DATE(event_time) AS event_date,
+    CAST(JSON_EXTRACT_SCALAR(event_value, '$.af_price')AS FLOAT64) AS event_value_af_price,
+    CAST(JSON_EXTRACT_SCALAR(event_value, '$.af_revenue')AS FLOAT64) AS event_value_af_revenue,
+    CAST(event_revenue AS FLOAT64) event_revenue
+  FROM
+    `${dataform.projectConfig.vars.rockadsProject}.appsflyer.com_positivise_moyra_in_app_events`
+    )
+SELECT
+  *
+FROM (
+  SELECT
+    campaign,
+    af_adset,
+    af_ad,
+    af_ad_id,
+    country_code,
+    media_source,
+    appsflyer_os_id,
+    event_date,
+    SUM(
+    IF
+      (event_value_af_revenue=0,0,event_value_af_price)) AS activity_event_value_af_price,
+    SUM(event_value_af_revenue) AS activity_event_value_af_revenue,
+    SUM(CAST(event_revenue AS FLOAT64)) activity_event_revenue
+  FROM
+    main_raw_data
+  GROUP BY
+    ALL )

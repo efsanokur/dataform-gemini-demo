@@ -1,0 +1,68 @@
+config {
+  type: "table",
+    bigquery: {
+    partitionBy: "report_date"
+  },
+  database: `${dataform.projectConfig.vars.rockadsProject}`,
+  name: "id6741896957_single_cost_dm_all_geo",
+  schema: "id6741896957_appsflyer_ds",
+  dependencies: ['id6741896957_single_cost_dm'],
+  tags: ['appsflyer_id6741896957_main']
+}
+
+WITH geo_list AS (
+SELECT short_code as geo  FROM `${dataform.projectConfig.vars.rockadsProject}.mapping_tables.countries`
+),
+existing_data AS (
+SELECT
+  *
+FROM
+  `${dataform.projectConfig.vars.rockadsProject}.id6741896957_appsflyer_ds.id6741896957_single_cost_dm`
+),
+distinct_combinations AS (
+  SELECT DISTINCT
+    report_date,
+    media_source,
+    appsflyer_os_id,
+    app_id,
+    campaign,
+    adset,
+    ad,
+    currency
+  FROM existing_data
+)
+
+SELECT
+  dc.report_date,
+  dc.media_source,
+  dc.appsflyer_os_id,
+  dc.app_id,
+  dc.campaign,
+  dc.adset,
+  dc.ad,
+  gl.geo,
+  dc.currency,
+  IFNULL(ed.total_cost, 0) AS total_cost,
+  IFNULL(ed.total_installs, 0) AS total_installs,
+  IFNULL(ed.total_clicks, 0) AS total_clicks,
+  IFNULL(ed.total_impressions, 0) AS total_impressions,
+  IFNULL(ed.total_re_attributions, 0) AS total_re_attributions,
+  IFNULL(ed.total_re_engagements, 0) AS total_re_engagements,
+  IFNULL(ed.total_video_completions, 0) AS total_video_completions,
+  IFNULL(ed.total_video_25p_views, 0) AS total_video_25p_views,
+  IFNULL(ed.total_video_50p_views, 0) AS total_video_50p_views,
+  IFNULL(ed.total_video_75p_views, 0) AS total_video_75p_views,
+FROM
+  distinct_combinations dc
+CROSS JOIN
+  geo_list gl
+LEFT JOIN
+  existing_data ed
+  ON dc.report_date = ed.report_date
+  AND dc.media_source = ed.media_source
+  AND dc.app_id = ed.app_id
+  AND dc.campaign = ed.campaign
+  AND dc.adset = ed.adset
+  AND dc.ad = ed.ad
+  AND dc.currency = ed.currency
+  AND gl.geo = ed.geo

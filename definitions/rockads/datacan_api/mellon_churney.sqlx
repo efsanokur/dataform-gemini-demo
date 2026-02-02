@@ -1,0 +1,13 @@
+config {
+  type: "table",
+  bigquery: {
+    partitionBy: "DATE(install_time)",
+    clusterBy: ["app_name", 'geo']
+  },
+  database: `${dataform.projectConfig.vars.rockadsProject}`,
+  name: "mellon_churney",
+  schema: "datacan_thirdparty_api_datamarts",
+  tags: ['datacan_mellon_daily']
+}
+
+SELECT *, 'videa' as app_name FROM rockads-thirdparty.appsflyer_ltv.churney_prediction_updated

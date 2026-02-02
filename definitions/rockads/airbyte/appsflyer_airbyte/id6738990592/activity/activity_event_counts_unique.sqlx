@@ -1,0 +1,153 @@
+config {
+  type: "table",
+    bigquery: {
+    partitionBy: "event_date",
+    clusterBy: ["country_code"]
+  },
+  database: `${dataform.projectConfig.vars.rockadsProject}`,
+  name: "id6738990592_activity_event_counts_unique",
+  schema: "id6738990592_appsflyer_ds",
+  dependencies: ['id6738990592_activity_revenues'],
+  tags: ['appsflyer_id6738990592_main']
+}
+WITH bounds AS (
+  SELECT
+    -- realtime start
+    TIMESTAMP(
+      DATETIME(
+        CASE
+          WHEN EXTRACT(HOUR FROM CURRENT_DATETIME('UTC')) < 4
+            THEN DATE_SUB(CURRENT_DATE('UTC'), INTERVAL 1 DAY)
+          ELSE CURRENT_DATE('UTC')
+        END,
+        TIME '00:00:00'
+      ),
+      'UTC'
+    ) AS realtime_start_ts,
+
+    -- realtime end
+    TIMESTAMP(
+      DATETIME(
+        CASE
+          WHEN EXTRACT(HOUR FROM CURRENT_DATETIME('UTC')) < 4
+            THEN CURRENT_DATE('UTC')
+          ELSE DATE_ADD(CURRENT_DATE('UTC'), INTERVAL 1 DAY)
+        END,
+        CASE
+          WHEN EXTRACT(HOUR FROM CURRENT_DATETIME('UTC')) < 4
+            THEN TIME '04:00:00'
+          ELSE TIME '00:00:00'
+        END
+      ),
+      'UTC'
+    ) AS realtime_end_ts
+),
+
+main_raw_data AS (
+# IOS id6738990592
+SELECT  campaign, af_adset, af_ad, af_ad_id, event_name,IF(media_source = 'restricted', 'Facebook Ads', media_source) as media_source,
+'id6738990592' as appsflyer_os_id,
+country_code,customer_user_id,
+event_revenue,
+DATE(event_time) as event_date,
+FROM `${dataform.projectConfig.vars.rockadsProject}.appsflyer.id6738990592_in_app_events`
+WHERE DATE(event_time) < '2025-06-01'
+
+UNION ALL
+SELECT  IF(campaign='',NULL, campaign) AS campaign, IF(af_adset='',NULL, af_adset) AS af_adset, IF(af_ad='',NULL, af_ad) AS af_ad, IF(af_ad_id='',NULL, af_ad_id) AS af_ad_id, event_name,
+IF(media_source = 'restricted', 'Facebook Ads', IF(media_source='',NULL, media_source)) as media_source,
+'id6738990592' as appsflyer_os_id,
+country_code,customer_user_id,
+SAFE_CAST(NULLIF(event_revenue, '') AS STRING) AS event_revenue,
+DATE(event_time) as event_date,
+FROM `rockads-thirdparty.appsflyer_airflow.id6738990592_in_app_events`
+where DATE(event_time) >= '2025-06-01' AND event_time < (SELECT realtime_start_ts FROM bounds)
+
+UNION ALL
+SELECT
+  IF(campaign = '', NULL, campaign) AS campaign,
+  IF(adset    = '', NULL, adset)    AS af_adset,
+  IF(af_ad    = '', NULL, af_ad)    AS af_ad,
+  IF(af_ad_id = '', NULL, af_ad_id) AS af_ad_id,
+  event_name,
+  IF(media_source = 'restricted', 'Facebook Ads', IF(media_source = '', NULL, media_source)) AS media_source,
+  'id6738990592' AS appsflyer_os_id,
+  country_code,
+  customer_user_id,
+  SAFE_CAST(NULLIF(event_revenue, 0) AS STRING) AS event_revenue,
+  DATE(event_time) AS event_date
+FROM `rockads-thirdparty.realtime_appsflyer_events.id6738990592_events_latest`
+WHERE
+  event_time >= (SELECT realtime_start_ts FROM bounds)
+  AND event_time <  (SELECT realtime_end_ts   FROM bounds)
+  AND media_source != 'organic'
+
+# Android com.videoai.effects
+UNION ALL
+SELECT  campaign, af_adset, af_ad, af_ad_id, event_name,IF(media_source = 'restricted', 'Facebook Ads', media_source) as media_source,
+'com_videoai_effects' as appsflyer_os_id,
+country_code,customer_user_id,
+event_revenue,
+DATE(event_time) as event_date,
+FROM `${dataform.projectConfig.vars.rockadsProject}.appsflyer.com_videoai_effects_in_app_events`
+WHERE DATE(event_time) < '2025-06-12'
+
+UNION ALL
+SELECT  IF(campaign='',NULL, campaign) AS campaign, IF(af_adset='',NULL, af_adset) AS af_adset, IF(af_ad='',NULL, af_ad) AS af_ad, IF(af_ad_id='',NULL, af_ad_id) AS af_ad_id, event_name,
+IF(media_source = 'restricted', 'Facebook Ads', IF(media_source='',NULL, media_source)) as media_source,
+'com_videoai_effects' as appsflyer_os_id,
+country_code,customer_user_id,
+SAFE_CAST(NULLIF(event_revenue, '') AS STRING) AS event_revenue,
+DATE(event_time) as event_date,
+FROM `rockads-thirdparty.appsflyer_airflow.com_videoai_effects_in_app_events`
+where DATE(event_time) >= '2025-06-12' AND event_time < (SELECT realtime_start_ts FROM bounds)
+
+UNION ALL
+SELECT
+  IF(campaign = '', NULL, campaign) AS campaign,
+  IF(adset    = '', NULL, adset)    AS af_adset,
+  IF(af_ad    = '', NULL, af_ad)    AS af_ad,
+  IF(af_ad_id = '', NULL, af_ad_id) AS af_ad_id,
+  event_name,
+  IF(media_source = 'restricted', 'Facebook Ads', IF(media_source = '', NULL, media_source)) AS media_source,
+  'com_videoai_effects' AS appsflyer_os_id,
+  country_code,
+  customer_user_id,
+  SAFE_CAST(NULLIF(event_revenue, 0) AS STRING) AS event_revenue,
+  DATE(event_time) AS event_date
+FROM `rockads-thirdparty.realtime_appsflyer_events.com_videoai_effects_events_latest`
+WHERE
+  event_time >= (SELECT realtime_start_ts FROM bounds)
+  AND event_time <  (SELECT realtime_end_ts   FROM bounds)
+  AND media_source != 'organic'
+
+)
+SELECT * FROM (
+SELECT campaign, af_adset, af_ad, af_ad_id, country_code,
+media_source, appsflyer_os_id, event_name,
+event_date,
+count(event_name) AS event_count,
+count(distinct customer_user_id) AS unique_event_count,
+sum(CAST(event_revenue AS FLOAT64)) AS revenue,
+FROM main_raw_data 
+GROUP BY ALL
+)
+PIVOT (
+  MAX(event_count) as activity_event_count,
+  MAX(unique_event_count)  as activity_unique_event_count,
+  MAX(revenue) as activity_revenue FOR event_name IN (
+    'paywallShowed',
+    'paymentInit',
+    'rc_renewal_event',
+    'rc_trial_converted_event',
+    'rc_expiration_event',
+    'rc_cancellation_event',
+    'rc_billing_issue_event',
+    'rc_initial_purchase_event',
+    'rc_product_change_event',
+    'rc_trial_started_event',
+    'rc_trial_cancelled_event',
+    'WebToAppInstall',
+    'rc_non_subscription_purchase_event'
+  )
+)

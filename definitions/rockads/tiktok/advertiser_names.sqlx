@@ -1,0 +1,35 @@
+config {
+  type: "table",
+  database: `${dataform.projectConfig.vars.rockadsProject}`,
+  name: "tiktok_advertiser_names",
+  schema: "mapping_tables",
+  tags: ['tiktok']
+}
+
+WITH
+  new_or_update AS (
+  SELECT
+    DISTINCT advertiser_id,
+    advertiser_name
+  FROM
+    `${dataform.projectConfig.vars.rockadsProject}.tiktok.tiktok_ad_accounts` ),
+  history AS (
+  SELECT
+    *
+  FROM
+    `${dataform.projectConfig.vars.rockadsProject}.mapping_tables.tiktok_advertiser_names`
+  WHERE
+    advertiser_id NOT IN (
+    SELECT
+      advertiser_id
+    FROM
+      new_or_update ) )
+SELECT
+  *
+FROM
+  history
+UNION ALL
+SELECT
+  *
+FROM
+  new_or_update

@@ -1,0 +1,348 @@
+config {
+  type: "table",
+    bigquery: {
+    partitionBy: "report_date",
+    clusterBy: ["media_source"]
+  },
+  database: `${dataform.projectConfig.vars.rockadsProject}`,
+  name: "id6473276045_platforms_merged_all_cost_geo",
+  schema: "id6473276045_appsflyer_ds",
+  dependencies: ['id6473276045_combined_single_all_cost_dm_all_geo'],
+  tags: ['appsflyer_id6473276045_main']
+}
+
+WITH
+  geo_list AS (
+  SELECT
+    short_code AS geo
+  FROM
+    `${dataform.projectConfig.vars.rockadsProject}.mapping_tables.countries` ),
+  fb_costs AS (
+  SELECT
+    ad_name AS ad,
+    ad_insight_date_start AS report_date,
+    campaign_name AS campaign,
+    adset_name AS adset,
+  IF
+    (country='GB', 'UK', country) AS geo,
+    'id6473276045' AS app_id,
+    'Facebook Ads' AS media_source,
+    cast(null as string) as appsflyer_os_id,
+    'USD'AS currency,
+    SUM(total_spend) AS total_cost,
+    SUM(total_outbound_clicks) AS total_outbound_clicks,
+    SUM(total_impressions) AS total_impressions,
+    SUM(total_clicks) AS total_clicks,
+    SUM(action_count_purchase) as action_count_purchase
+  FROM
+    `${dataform.projectConfig.vars.rockadsProject}.fb_airbyte_datamarts.ads_insights_by_country_merged_1186788694772131`
+  WHERE
+    account_id in ('1280510172066649', '1280523645398635')
+  GROUP BY
+    ALL),
+
+tiktok_costs AS (
+  SELECT
+    ad_name AS ad,
+    stat_time_day AS report_date,
+    campaign_name AS campaign,
+    adgroup_name as adset,
+  IF
+    (country_code='GB', 'UK', country_code) AS geo,
+    'id6473276045' AS app_id,
+    'tiktokglobal_int' AS media_source,
+    cast(null as string) as appsflyer_os_id,
+    'USD'AS currency,
+    SUM(spend) AS total_cost
+  FROM
+    `${dataform.projectConfig.vars.rockadsProject}.tiktok_airbyte_datamarts.ads_audience_reports_by_country_merged_id6473276045`
+  GROUP BY
+    ALL),
+
+googleAds_costs AS (
+  SELECT
+    'None' AS ad,
+    segments_date AS report_date,
+    campaign_name AS campaign,
+    ad_group_name as adset,
+    geo,
+    'id6473276045' AS app_id,
+    media_source,
+    appsflyer_os_id,
+    currency,
+    SUM(total_cost) AS total_cost
+  FROM
+    `rockads-thirdparty.googleAds_dm.all_apps_geographic_view`
+  WHERE customer_id in (7087772901, 2464874700 ,7482254637) # esimIo google ads customer ids
+  GROUP BY
+    ALL
+
+UNION ALL
+  SELECT
+    'None' AS ad,
+    segments_date AS report_date,
+    campaign_name AS campaign,
+    'None'  as adset,
+    geo,
+    'id6473276045' AS app_id,
+    media_source,
+    appsflyer_os_id,
+    currency,
+    SUM(total_cost) AS total_cost
+  FROM
+    `rockads-thirdparty.googleAds_dm.all_apps_campaign_geographic_view`
+  WHERE customer_id in (7087772901, 2464874700 ,7482254637) # esimIo google ads customer ids
+  GROUP BY
+    ALL
+
+    ),
+
+  combined_single_all_cost_dm_all_geo AS (
+  SELECT
+    *
+  FROM
+    `${dataform.projectConfig.vars.rockadsProject}.id6473276045_appsflyer_ds.id6473276045_combined_single_all_cost_dm_all_geo` ),
+  distinct_combinations AS (
+  SELECT
+    DISTINCT report_date,
+    media_source,
+    appsflyer_os_id,
+    app_id,
+    campaign,
+    adset,
+    ad,
+    currency
+  FROM
+    fb_costs ),
+
+  distinct_combinations_tiktok AS (
+  SELECT
+    DISTINCT report_date,
+    media_source,
+    appsflyer_os_id,
+    app_id,
+    campaign,
+    adset,
+    ad,
+    currency
+  FROM
+    tiktok_costs ),
+
+  distinct_combinations_googleAds AS (
+  SELECT
+    DISTINCT report_date,
+    media_source,
+    appsflyer_os_id,
+    app_id,
+    campaign,
+    adset,
+    ad,
+    currency
+  FROM
+    googleAds_costs )
+
+
+SELECT
+  *,
+  CAST(NULL AS NUMERIC) AS fb_total_outbound_clicks,
+  CAST(NULL AS NUMERIC) AS fb_total_impressions,
+  CAST(NULL AS NUMERIC) AS fb_total_clicks,
+  CAST(NULL AS NUMERIC) AS fb_total_purchase
+FROM
+  combined_single_all_cost_dm_all_geo
+WHERE
+  media_source NOT IN ('Facebook Ads', 'tiktokglobal_int', 'googleadwords_int')
+UNION ALL
+SELECT
+  IFNULL(fbcs.ad, appsflyer_costs.ad) AS ad,
+  IFNULL(fbcs.report_date, appsflyer_costs.report_date) AS report_date,
+  IFNULL(fbcs.campaign, appsflyer_costs.campaign) AS campaign,
+  IFNULL(fbcs.adset, appsflyer_costs.adset) AS adset,
+  IFNULL(fbcs.geo, appsflyer_costs.geo) AS geo,
+  IFNULL(fbcs.app_id, appsflyer_costs.app_id) AS app_id,
+  IFNULL(fbcs.media_source, appsflyer_costs.media_source) AS media_source,
+  IFNULL(fbcs.appsflyer_os_id, appsflyer_costs.appsflyer_os_id) AS appsflyer_os_id,
+  IFNULL(fbcs.total_cost, 0) AS total_cost,
+  IFNULL(appsflyer_costs.total_installs, 0) AS total_installs,
+  IFNULL(appsflyer_costs.total_clicks, 0) AS total_clicks,
+  IFNULL(appsflyer_costs.total_impressions, 0) AS total_impressions,
+  IFNULL(appsflyer_costs.total_re_attributions, 0) AS total_re_attributions,
+  IFNULL(appsflyer_costs.total_re_engagements, 0) AS total_re_engagements,
+  IFNULL(appsflyer_costs.total_video_completions, 0) AS total_video_completions,
+  IFNULL(appsflyer_costs.total_video_25p_views, 0) AS total_video_25p_views,
+  IFNULL(appsflyer_costs.total_video_50p_views, 0) AS total_video_50p_views,
+  IFNULL(appsflyer_costs.total_video_75p_views, 0) AS total_video_75p_views,
+  IFNULL(fbcs.total_outbound_clicks, 0) AS fb_total_outbound_clicks,
+  IFNULL(fbcs.total_impressions, 0) AS fb_total_impressions,
+  IFNULL(fbcs.total_clicks, 0) AS fb_total_clicks,
+  IFNULL(fbcs.action_count_purchase, 0) AS fb_total_purchase,
+
+FROM (
+  SELECT
+    dc.report_date,
+    dc.media_source,
+    dc.appsflyer_os_id,
+    dc.app_id,
+    dc.campaign,
+    dc.adset,
+    dc.ad,
+    gl.geo,
+    dc.currency,
+    IFNULL(ed.total_cost, 0) AS total_cost,
+    IFNULL(ed.total_outbound_clicks, 0) AS total_outbound_clicks,
+    IFNULL(ed.total_impressions, 0) AS total_impressions,
+    IFNULL(ed.total_clicks, 0) AS total_clicks,
+    IFNULL(ed.action_count_purchase, 0) AS action_count_purchase
+  FROM
+    distinct_combinations dc
+  CROSS JOIN
+    geo_list gl
+  LEFT JOIN
+    fb_costs ed
+  ON
+    dc.report_date = ed.report_date
+    AND dc.app_id = ed.app_id
+    AND dc.campaign = ed.campaign
+    AND dc.adset = ed.adset
+    AND dc.ad = ed.ad
+    AND dc.currency = ed.currency
+    AND gl.geo = ed.geo) fbcs
+FULL OUTER JOIN
+  (SELECT * FROM combined_single_all_cost_dm_all_geo WHERE media_source IN ('Facebook Ads') ) appsflyer_costs
+ON
+  fbcs.ad=appsflyer_costs.ad
+  AND fbcs.campaign=appsflyer_costs.campaign
+  AND fbcs.adset=appsflyer_costs.adset
+  AND fbcs.report_date=appsflyer_costs.report_date
+  AND fbcs.geo=appsflyer_costs.geo
+  AND fbcs.app_id=appsflyer_costs.app_id
+  AND fbcs.media_source=appsflyer_costs.media_source
+
+
+# Tiktok Costs
+
+UNION ALL
+SELECT
+  IFNULL(tiktoks.ad, appsflyer_costs.ad) AS ad,
+  IFNULL(tiktoks.report_date, appsflyer_costs.report_date) AS report_date,
+  IFNULL(tiktoks.campaign, appsflyer_costs.campaign) AS campaign,
+  IFNULL(tiktoks.adset, appsflyer_costs.adset) AS adset,
+  IFNULL(tiktoks.geo, appsflyer_costs.geo) AS geo,
+  IFNULL(tiktoks.app_id, appsflyer_costs.app_id) AS app_id,
+  IFNULL(tiktoks.media_source, appsflyer_costs.media_source) AS media_source,
+  IFNULL(tiktoks.appsflyer_os_id, appsflyer_costs.appsflyer_os_id) AS appsflyer_os_id,
+  IFNULL(tiktoks.total_cost, 0) AS total_cost,
+  IFNULL(appsflyer_costs.total_installs, 0) AS total_installs,
+  IFNULL(appsflyer_costs.total_clicks, 0) AS total_clicks,
+  IFNULL(appsflyer_costs.total_impressions, 0) AS total_impressions,
+  IFNULL(appsflyer_costs.total_re_attributions, 0) AS total_re_attributions,
+  IFNULL(appsflyer_costs.total_re_engagements, 0) AS total_re_engagements,
+  IFNULL(appsflyer_costs.total_video_completions, 0) AS total_video_completions,
+  IFNULL(appsflyer_costs.total_video_25p_views, 0) AS total_video_25p_views,
+  IFNULL(appsflyer_costs.total_video_50p_views, 0) AS total_video_50p_views,
+  IFNULL(appsflyer_costs.total_video_75p_views, 0) AS total_video_75p_views,
+  CAST(NULL AS NUMERIC) AS fb_total_outbound_clicks,
+  CAST(NULL AS NUMERIC) AS fb_total_impressions,
+  CAST(NULL AS NUMERIC) AS fb_total_clicks,
+  CAST(NULL AS NUMERIC) AS fb_total_purchase,
+
+FROM (
+  SELECT
+    dck.report_date,
+    dck.media_source,
+    dck.appsflyer_os_id,
+    dck.app_id,
+    dck.campaign,
+    dck.adset,
+    dck.ad,
+    gl.geo,
+    dck.currency,
+    IFNULL(ed.total_cost, 0) AS total_cost
+  FROM
+    distinct_combinations_tiktok dck
+  CROSS JOIN
+    geo_list gl
+  LEFT JOIN
+    tiktok_costs ed
+  ON
+    dck.report_date = ed.report_date
+    AND dck.app_id = ed.app_id
+    AND dck.campaign = ed.campaign
+    AND dck.adset = ed.adset
+    AND dck.ad = ed.ad
+    AND dck.currency = ed.currency
+    AND gl.geo = ed.geo) tiktoks
+FULL OUTER JOIN
+  (SELECT * FROM combined_single_all_cost_dm_all_geo WHERE media_source IN ('tiktokglobal_int') ) appsflyer_costs
+ON
+  tiktoks.ad=appsflyer_costs.ad
+  AND tiktoks.campaign=appsflyer_costs.campaign
+  AND tiktoks.adset=appsflyer_costs.adset
+  AND tiktoks.report_date=appsflyer_costs.report_date
+  AND tiktoks.geo=appsflyer_costs.geo
+  AND tiktoks.app_id=appsflyer_costs.app_id
+  AND tiktoks.media_source=appsflyer_costs.media_source
+
+# Google Ads Costs
+
+UNION ALL
+SELECT
+  IFNULL(googleAds.ad, appsflyer_costs.ad) AS ad,
+  IFNULL(googleAds.report_date, appsflyer_costs.report_date) AS report_date,
+  IFNULL(googleAds.campaign, appsflyer_costs.campaign) AS campaign,
+  IFNULL(googleAds.adset, appsflyer_costs.adset) AS adset,
+  IFNULL(googleAds.geo, appsflyer_costs.geo) AS geo,
+  IFNULL(googleAds.app_id, appsflyer_costs.app_id) AS app_id,
+  IFNULL(googleAds.media_source, appsflyer_costs.media_source) AS media_source,
+  IFNULL(googleAds.appsflyer_os_id, appsflyer_costs.appsflyer_os_id) AS appsflyer_os_id,
+  IFNULL(googleAds.total_cost, 0) AS total_cost,
+  IFNULL(appsflyer_costs.total_installs, 0) AS total_installs,
+  IFNULL(appsflyer_costs.total_clicks, 0) AS total_clicks,
+  IFNULL(appsflyer_costs.total_impressions, 0) AS total_impressions,
+  IFNULL(appsflyer_costs.total_re_attributions, 0) AS total_re_attributions,
+  IFNULL(appsflyer_costs.total_re_engagements, 0) AS total_re_engagements,
+  IFNULL(appsflyer_costs.total_video_completions, 0) AS total_video_completions,
+  IFNULL(appsflyer_costs.total_video_25p_views, 0) AS total_video_25p_views,
+  IFNULL(appsflyer_costs.total_video_50p_views, 0) AS total_video_50p_views,
+  IFNULL(appsflyer_costs.total_video_75p_views, 0) AS total_video_75p_views,
+  CAST(NULL AS NUMERIC) AS fb_total_outbound_clicks,
+  CAST(NULL AS NUMERIC) AS fb_total_impressions,
+  CAST(NULL AS NUMERIC) AS fb_total_clicks,
+  CAST(NULL AS NUMERIC) AS fb_total_purchase,
+
+FROM (
+  SELECT
+    dck.report_date,
+    dck.media_source,
+    dck.appsflyer_os_id,
+    dck.app_id,
+    dck.campaign,
+    dck.adset,
+    dck.ad,
+    gl.geo,
+    dck.currency,
+    IFNULL(ed.total_cost, 0) AS total_cost
+  FROM
+    distinct_combinations_googleAds dck
+  CROSS JOIN
+    geo_list gl
+  LEFT JOIN
+    googleAds_costs ed
+  ON
+    dck.report_date = ed.report_date
+    AND dck.app_id = ed.app_id
+    AND dck.campaign = ed.campaign
+    AND dck.adset = ed.adset
+    AND dck.ad = ed.ad
+    AND dck.currency = ed.currency
+    AND gl.geo = ed.geo) googleAds
+FULL OUTER JOIN
+  (SELECT * FROM combined_single_all_cost_dm_all_geo WHERE media_source IN ('googleadwords_int') ) appsflyer_costs
+ON
+  googleAds.ad=appsflyer_costs.ad
+  AND googleAds.campaign=appsflyer_costs.campaign
+  AND googleAds.adset=appsflyer_costs.adset
+  AND googleAds.report_date=appsflyer_costs.report_date
+  AND googleAds.geo=appsflyer_costs.geo
+  AND googleAds.app_id=appsflyer_costs.app_id
+  AND googleAds.media_source=appsflyer_costs.media_source

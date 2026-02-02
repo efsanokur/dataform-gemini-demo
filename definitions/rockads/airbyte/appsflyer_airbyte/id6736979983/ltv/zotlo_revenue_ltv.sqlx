@@ -1,0 +1,193 @@
+config {
+  type: "table",
+    bigquery: {
+    partitionBy: "install_date",
+    clusterBy: ["country_code"]
+  },
+  database: `${dataform.projectConfig.vars.rockadsProject}`,
+  name: "id6736979983_zotlo_revenue_ltv",
+  schema: "id6736979983_appsflyer_ds",
+  dependencies: ['id6736979983_revenues'],
+  tags: ['appsflyer_id6736979983_main']
+}
+
+WITH main_data as (
+  SELECT
+    campaign,
+    af_adset,
+    af_ad,
+    CONCAT('zotlo-', IF(media_source is NULL,'',media_source)) AS media_source,
+    'id6736979983' as appsflyer_os_id,
+    country_code,
+    DATE(install_time) AS event_date,
+    DATE(event_time) as event_time,
+    CAST(amount AS FLOAT64) event_revenue
+  FROM
+    (
+
+      SELECT * FROM (
+        SELECT
+              DATE(original_event_date) AS install_time,
+              date AS event_time,
+              app_name,
+              UPPER(country) AS country_code,
+              IFNULL(utm_content, '') AS af_ad,
+              IFNULL(utm_medium, '') AS af_adset,
+              IFNULL(utm_source, '') AS media_source,
+              IFNULL(utm_campaign, '') AS campaign,
+              IFNULL(transaction_type, 'zotlo_unkown_event') as event_name,
+              SUM(total_amount_usd) AS amount,
+              SUM(event_count) AS event_count
+              from `zotlo-dataland.zotlo_datamarts.purchase_count_daily`
+              WHERE status="success" AND LOWER(platform)  = 'web'
+              group by ALL
+
+              UNION ALL
+
+              SELECT
+              DATE(original_event_date) AS install_time,
+              date AS event_time,
+              app_name,
+              UPPER(country) AS country_code,
+              IFNULL(utm_content, '') AS ad_name,
+              IFNULL(utm_medium, '') AS ad_group_name,
+              IFNULL(utm_source, '') AS media_source,
+              IFNULL(utm_campaign, '') AS campaign_name,
+              IFNULL(transaction_type, 'zotlo_unkown_event') as event_name,
+              -SUM(total_amount_usd) AS amount,
+              SUM(total_transaction_count) AS event_count
+              from `zotlo-dataland.zotlo_datamarts.refund_count_daily`
+              WHERE status="success" AND LOWER(platform)  = 'web'
+              group by ALL
+        )
+        WHERE app_name IN
+          ('Shorten', 'Shorten Streaming App')
+    )
+
+),
+
+revenue_with_days AS (
+  SELECT
+    campaign,
+    af_ad,
+    af_adset,
+    media_source,
+    appsflyer_os_id,
+    country_code,
+    event_date AS install_date,
+    event_time,
+    DATE_DIFF(event_time, event_date, DAY) AS day_number,
+    event_revenue
+  FROM main_data
+  WHERE event_revenue IS NOT NULL
+),
+
+daily_revenue AS (
+  SELECT
+    install_date,
+    campaign,
+    af_ad,
+    af_adset,
+    media_source,
+    appsflyer_os_id,
+    country_code,
+    day_number,
+    SUM(event_revenue) AS revenue
+  FROM revenue_with_days
+  WHERE day_number >= 0
+  GROUP BY
+    install_date, campaign, af_ad, af_adset, media_source, appsflyer_os_id, country_code, day_number
+),
+
+cumulative_revenue AS (
+  SELECT
+    install_date,
+    campaign,
+    af_ad,
+    af_adset,
+    media_source,
+    appsflyer_os_id,
+    country_code,
+
+    CASE
+      WHEN install_date <= CURRENT_DATE() THEN SUM(CASE
+        WHEN day_number = 0 THEN revenue ELSE 0 END)
+      ELSE NULL
+    END AS d0_revenue,
+
+    CASE
+      WHEN DATE_ADD(install_date, INTERVAL 1 DAY) <= CURRENT_DATE() THEN
+        SUM(CASE WHEN day_number <= 1 THEN revenue ELSE 0 END)
+      ELSE NULL
+    END AS d1_revenue,
+
+    CASE
+      WHEN DATE_ADD(install_date, INTERVAL 3 DAY) <= CURRENT_DATE() THEN
+        SUM(CASE WHEN day_number <= 3 THEN revenue ELSE 0 END)
+      ELSE NULL
+    END AS d3_revenue,
+
+    CASE
+      WHEN DATE_ADD(install_date, INTERVAL 7 DAY) <= CURRENT_DATE() THEN
+        SUM(CASE WHEN day_number <= 7 THEN revenue ELSE 0 END)
+      ELSE NULL
+    END AS d7_revenue,
+
+    CASE
+      WHEN DATE_ADD(install_date, INTERVAL 15 DAY) <= CURRENT_DATE() THEN
+        SUM(CASE WHEN day_number <= 15 THEN revenue ELSE 0 END)
+      ELSE NULL
+    END AS d15_revenue,
+
+    CASE
+      WHEN DATE_ADD(install_date, INTERVAL 30 DAY) <= CURRENT_DATE() THEN
+        SUM(CASE WHEN day_number <= 30 THEN revenue ELSE 0 END)
+      ELSE NULL
+    END AS d30_revenue,
+
+    CASE WHEN DATE_ADD(install_date, INTERVAL 60 DAY)  <= CURRENT_DATE() THEN SUM(CASE WHEN day_number <= 60  THEN revenue ELSE 0 END) END AS d60_revenue,
+    CASE WHEN DATE_ADD(install_date, INTERVAL 90 DAY)  <= CURRENT_DATE() THEN SUM(CASE WHEN day_number <= 90  THEN revenue ELSE 0 END) END AS d90_revenue,
+    CASE WHEN DATE_ADD(install_date, INTERVAL 120 DAY) <= CURRENT_DATE() THEN SUM(CASE WHEN day_number <= 120 THEN revenue ELSE 0 END) END AS d120_revenue,
+    CASE WHEN DATE_ADD(install_date, INTERVAL 150 DAY) <= CURRENT_DATE() THEN SUM(CASE WHEN day_number <= 150 THEN revenue ELSE 0 END) END AS d150_revenue,
+    CASE WHEN DATE_ADD(install_date, INTERVAL 180 DAY) <= CURRENT_DATE() THEN SUM(CASE WHEN day_number <= 180 THEN revenue ELSE 0 END) END AS d180_revenue,
+    CASE WHEN DATE_ADD(install_date, INTERVAL 210 DAY) <= CURRENT_DATE() THEN SUM(CASE WHEN day_number <= 210 THEN revenue ELSE 0 END) END AS d210_revenue,
+    CASE WHEN DATE_ADD(install_date, INTERVAL 240 DAY) <= CURRENT_DATE() THEN SUM(CASE WHEN day_number <= 240 THEN revenue ELSE 0 END) END AS d240_revenue,
+    CASE WHEN DATE_ADD(install_date, INTERVAL 270 DAY) <= CURRENT_DATE() THEN SUM(CASE WHEN day_number <= 270 THEN revenue ELSE 0 END) END AS d270_revenue,
+    CASE WHEN DATE_ADD(install_date, INTERVAL 300 DAY) <= CURRENT_DATE() THEN SUM(CASE WHEN day_number <= 300 THEN revenue ELSE 0 END) END AS d300_revenue,
+    CASE WHEN DATE_ADD(install_date, INTERVAL 330 DAY) <= CURRENT_DATE() THEN SUM(CASE WHEN day_number <= 330 THEN revenue ELSE 0 END) END AS d330_revenue,
+    CASE WHEN DATE_ADD(install_date, INTERVAL 360 DAY) <= CURRENT_DATE() THEN SUM(CASE WHEN day_number <= 360 THEN revenue ELSE 0 END) END AS d360_revenue,
+
+    SUM(revenue) AS ltv_revenue
+
+  FROM daily_revenue
+  GROUP BY
+    install_date, campaign, af_ad, af_adset, media_source, appsflyer_os_id, country_code
+)
+
+SELECT
+  install_date,
+  campaign,
+  af_ad,
+  af_adset,
+  media_source,
+  appsflyer_os_id,
+  country_code,
+  ROUND(d0_revenue, 2) AS d0,
+  ROUND(d1_revenue, 2) AS d1,
+  ROUND(d3_revenue, 2) AS d3,
+  ROUND(d7_revenue, 2) AS d7,
+  ROUND(d15_revenue, 2) AS d15,
+  ROUND(d30_revenue, 2) AS d30,
+  ROUND(d60_revenue, 2)  AS d60,
+  ROUND(d90_revenue, 2)  AS d90,
+  ROUND(d120_revenue, 2) AS d120,
+  ROUND(d150_revenue, 2) AS d150,
+  ROUND(d180_revenue, 2) AS d180,
+  ROUND(d210_revenue, 2) AS d210,
+  ROUND(d240_revenue, 2) AS d240,
+  ROUND(d270_revenue, 2) AS d270,
+  ROUND(d300_revenue, 2) AS d300,
+  ROUND(d330_revenue, 2) AS d330,
+  ROUND(d360_revenue, 2) AS d360,
+  ROUND(ltv_revenue, 2) AS ltv
+FROM cumulative_revenue

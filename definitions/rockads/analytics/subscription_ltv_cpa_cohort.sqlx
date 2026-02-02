@@ -1,0 +1,89 @@
+config {
+  type: "table",
+  database: `${dataform.projectConfig.vars.rockadsProject}`,
+  name: "subscription_ltv_cpa_cohort",
+  schema: "subscription_cohorts",
+  tags: ['rockads_main_analytics_pipeline'],
+  dependencies: ["subscription_mrr_cohort", "subscription_retention_cashflow_cohort"]
+}
+
+WITH apps_monthly_campaign_spends AS (
+SELECT
+       DATE_TRUNC(date, MONTH) AS spend_month,
+       company,
+       country_name,
+       CASE WHEN platform = "Web" AND company = "DGT Yazılım"
+       THEN "Stripe-Web" ELSE platform END AS platform,
+       SUM(total_spend_usd) AS total_spend
+FROM `${dataform.projectConfig.vars.rockadsProject}.company_stats.company_campaign_spends`
+WHERE country_name IS NOT NULL AND DATE_TRUNC(date, MONTH) >= '${rockads_analytics_libs.subscription_mrr_cohort_start_date}'
+AND company IN ("Kompanion", "Moyra Teknoloji", "DGT Yazılım")
+GROUP BY 1,2,3,4
+),
+
+getcontact_monthly_campaign_spends AS (
+SELECT
+       DATE_TRUNC(date, MONTH) AS spend_month,
+       company,
+       platform,
+       SUM(total_spend_usd) AS total_spend
+FROM `${dataform.projectConfig.vars.rockadsProject}.company_stats.company_campaign_spends`
+WHERE country_name IS NOT NULL AND DATE_TRUNC(date, MONTH) >= '${rockads_analytics_libs.subscription_mrr_cohort_start_date}'
+AND company = "Getcontact"
+GROUP BY 1,2,3
+),
+
+apps_monthly_ltv_acquisitions AS (
+SELECT
+      user_cohort,
+      company_name,
+      country,
+      CASE WHEN platform = "Stripe" AND company_name = "DGT Yazılım"
+      THEN "Stripe-Web" ELSE platform END AS platform,
+      SUM(CASE WHEN cohort_month = -1 THEN customer_retention END) AS total_acquisition,
+      SUM(CASE WHEN cohort_month != -1 THEN customer_retention END) AS total_renewals,
+      SUM(CASE WHEN cohort_month != -1 THEN net_cashflow END) AS total_ltv
+FROM `${dataform.projectConfig.vars.rockadsProject}.subscription_cohorts.subscription_retention_cashflow_cohort`
+WHERE company_name IN ("Kompanion", "Moyra Teknoloji", "DGT Yazılım")
+GROUP BY 1,2,3,4
+),
+
+getcontact_monthly_ltv_acquisitions AS (
+SELECT
+      user_cohort,
+      company_name,
+      platform,
+      SUM(CASE WHEN cohort_month = -1 THEN customer_retention END) AS total_acquisition,
+      SUM(CASE WHEN cohort_month != -1 THEN customer_retention END) AS total_renewals,
+      SUM(CASE WHEN cohort_month != -1 THEN net_cashflow END) AS total_ltv
+FROM `${dataform.projectConfig.vars.rockadsProject}.subscription_cohorts.subscription_retention_cashflow_cohort`
+WHERE company_name = "Getcontact"
+GROUP BY 1,2,3
+)
+
+SELECT
+       IFNULL(amla.company_name, amcs.company) AS company_name,
+       IFNULL(amla.user_cohort, amcs.spend_month) AS user_cohort,
+       IFNULL(amla.country, amcs.country_name) AS country,
+       IFNULL(amla.platform, amcs.platform) AS platform,
+       IFNULL(amla.total_ltv, 0) AS total_ltv,
+       IFNULL(amla.total_acquisition, 0) AS total_acquisition,
+       IFNULL(amla.total_renewals, 0) AS total_renewals,
+       IFNULL(amcs.total_spend, 0) AS total_spend
+FROM apps_monthly_ltv_acquisitions amla
+FULL JOIN apps_monthly_campaign_spends amcs ON amla.company_name = amcs.company AND amla.user_cohort = amcs.spend_month AND amla.country = amcs.country_name AND amla.platform = amcs.platform
+
+UNION ALL
+
+SELECT
+       IFNULL(gmla.company_name, gmcs.company) AS company_name,
+       IFNULL(gmla.user_cohort, gmcs.spend_month) AS user_cohort,
+       "" AS country,
+       IFNULL(gmla.platform, gmcs.platform) AS platform,
+       IFNULL(gmla.total_ltv, 0) AS total_ltv,
+       IFNULL(gmla.total_acquisition, 0) AS total_acquisition,
+       IFNULL(gmla.total_renewals, 0) AS total_renewals,
+       IFNULL(gmcs.total_spend, 0) AS total_spend
+FROM getcontact_monthly_ltv_acquisitions gmla
+FULL JOIN getcontact_monthly_campaign_spends gmcs ON gmla.company_name = gmcs.company AND gmla.user_cohort = gmcs.spend_month AND gmla.platform = gmcs.platform
+

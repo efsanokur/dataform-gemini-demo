@@ -1,0 +1,34 @@
+config {
+  type: "operations",
+  database: `${dataform.projectConfig.vars.rockadsProject}`,
+  name: "mellon_zotlo",
+  schema: "datacan_thirdparty_api_datamarts",
+  tags: ['datacan_mellon_daily']
+}
+
+CREATE OR REPLACE TABLE rockads-thirdparty.datacan_thirdparty_api_datamarts.mellon_zotlo_overview
+partition by report_date
+as
+SELECT
+*,
+'videa' as api_app_name
+FROM
+  `rockads-thirdparty.zotlo_marketing_ds.overview_ads_purchase_refund_combined_zotlo`
+WHERE
+  app_name IN
+  ('Videa AI - WEB')
+GROUP BY ALL;
+
+
+CREATE OR REPLACE TABLE rockads-thirdparty.datacan_thirdparty_api_datamarts.mellon_zotlo_activity
+partition by report_date
+as
+SELECT
+  *,
+'videa' as api_app_name
+FROM
+  `rockads-thirdparty.zotlo_marketing_ds.ads_purchase_refund_combined_zotlo`
+WHERE
+  app_name IN
+  ('Videa AI - WEB')
+GROUP BY ALL;

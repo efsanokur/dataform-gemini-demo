@@ -1,0 +1,62 @@
+config {
+  type: "operations",
+  database: `${dataform.projectConfig.vars.rockadsProject}`,
+  name: "mellon_appsflyer_cost_etl_all_cost_geo",
+  tags: ['datacan_mellon_daily']
+}
+
+# All cost geo
+CREATE OR REPLACE TABLE rockads-thirdparty.datacan_thirdparty_api_datamarts.mellon_appsflyer_cost_etl_all_cost_geo
+PARTITION BY report_date cluster by app_id,app_name
+as
+WITH
+    cost_dm AS (
+    SELECT
+      DATE(date) as report_date,
+      timezone as cost_etl_timezone,
+      TIMESTAMP_TRUNC(_dl_partition_time, DAY) as cost_etl_dl_partition_time_calc,
+      IFNULL(media_source, 'None') as media_source,
+      cast(null as string) as appsflyer_os_id,
+      app_id,
+      CASE WHEN app_id in ('id6738990592', 'com.videoai.effects') then 'videa'
+      when app_id in ('id1662905686', 'app.roboco.android') then 'robo'
+      when app_id in ('id6738388891') then 'cleaner'
+      END as app_name,
+      IFNULL(campaign, 'None') as campaign,
+      IFNULL(adset, IF(media_source = 'applovin_int', '_DEFAULT', 'None')) as adset,
+      IFNULL(ad, 'None') as ad,
+      IFNULL(geo, 'None') as geo,
+      v,
+      currency,
+      SUM(cost) total_cost,
+      SUM(installs) total_installs,
+      SUM(clicks) total_clicks,
+      SUM(impressions) AS total_impressions,
+      SUM(re_attributions) AS total_re_attributions,
+      SUM(re_engagements) AS total_re_engagements,
+      SUM(video_completions) AS total_video_completions,
+      SUM(video_25p_views) AS total_video_25p_views,
+      SUM(video_50p_views) AS total_video_50p_views,
+      SUM(video_75p_views) AS total_video_75p_views
+    FROM
+     `rockads-thirdparty.appsflyer_data_locker_id6738388891.cost_etl_all_cost_geo`
+    WHERE
+      TIMESTAMP_TRUNC(_dl_partition_time, DAY) >= TIMESTAMP(DATE_SUB(CURRENT_DATE(), INTERVAL 180 DAY))
+     and app_id in (
+      # Videa
+      'id6738990592', 'com.videoai.effects',
+      # Robo
+      'id1662905686', 'app.roboco.android',
+      # Cleaner
+      'id6738388891'
+     )
+    GROUP BY
+      ALL )
+  SELECT
+    * EXCEPT(v,
+      cost_etl_dl_partition_time_calc)
+  FROM
+    cost_dm
+  QUALIFY
+    ROW_NUMBER() OVER(PARTITION BY report_date, media_source, app_id, campaign, adset, ad, geo, currency ORDER BY cost_etl_dl_partition_time_calc DESC, v DESC) = 1
+

@@ -1,0 +1,100 @@
+config {
+  type: "table",
+  bigquery: {
+    partitionBy: "event_date"
+  },  
+  database: `${dataform.projectConfig.vars.rockadsProject}`,
+  name: "ios_subscriptionevent_report",
+  schema: "thirdparty_datamarts",
+  tags: ['ios_subscription_event_report_daily']
+}
+
+SELECT
+DISTINCT
+  country,
+  account_name,
+  app_name,
+  event,
+  subscription_name,
+  subscription_apple_id,
+  event_date,
+  original_start_date,
+  total_quantity
+FROM
+(
+SELECT
+  c.name AS country,
+  ia.account_name AS account_name,
+  app_name,
+  event,
+  subscription_name,
+  subscription_apple_id,
+  DATE(event_date) event_date,
+  DATE(original_start_date) original_start_date,
+  SUM(CAST(quantity AS float64)) total_quantity
+FROM
+  `rockads-thirdparty.itunes.itunes_subscription_event_summary_report_*` t
+LEFT JOIN
+  rockads-thirdparty.mapping_tables.countries c
+ON
+  c.short_code = t.country
+LEFT JOIN
+  rockads-thirdparty.mapping_tables.itunes_account_names ia
+ON
+  ia.account_number = t.account_number
+  AND ia.account_type = 'sales'
+WHERE
+  TRIM(original_start_date) != ""
+GROUP BY
+  c.name,
+  account_name,
+  app_name,
+  event,
+  subscription_name,
+  subscription_apple_id,
+  event_date,
+  original_start_date
+
+UNION ALL
+SELECT
+  c.name AS country,
+  ia.account_name AS account_name,
+  app_name,
+  event,
+  subscription_name,
+  safe_Cast(subscription_apple_id as STRING),
+  DATE(event_date) event_date,
+  DATE(original_start_date) original_start_date,
+  SUM(CAST(quantity AS float64)) total_quantity
+FROM
+  `rockads-thirdparty.itunes_connect_api.itunes_subscription_event_summary_report_*` t
+LEFT JOIN (
+      SELECT DISTINCT vendor_number, account_number
+      FROM `rockads-thirdparty.itunes.itunes_vendors`) vendors
+ON t.vendor_number=vendors.vendor_number
+
+LEFT JOIN
+  rockads-thirdparty.mapping_tables.countries c
+ON
+  c.short_code = t.country
+LEFT JOIN
+  rockads-thirdparty.mapping_tables.itunes_account_names ia
+ON
+  ia.account_number = vendors.account_number
+  AND ia.account_type = 'sales'
+WHERE
+  TRIM(SAFE_CAST(original_start_date AS STRING)) != ""
+    AND t.vendor_number in (
+  # Kompanion
+  '87864986'
+  )
+GROUP BY
+  c.name,
+  account_name,
+  app_name,
+  event,
+  subscription_name,
+  subscription_apple_id,
+  event_date,
+  original_start_date
+)

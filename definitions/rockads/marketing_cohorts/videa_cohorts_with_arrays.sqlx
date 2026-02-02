@@ -1,0 +1,567 @@
+config {
+    type: "operations",
+    tags: ["ltv_prediction_cohorts_with_arrays"],
+    name: "videa_marketing_daily_cohorts_with_arrays",
+    description: ""
+}
+
+CREATE OR REPLACE TABLE rockads-thirdparty.appsflyer_ltv.videa_marketing_daily_cohorts_with_arrays PARTITION BY install_time CLUSTER BY metric, period, country, media_source AS
+
+WITH
+ad_names AS (
+  SELECT * FROM rockads-thirdparty.appsflyer.ad_names_mapping_table
+),
+
+events AS (
+  SELECT
+  DATE_TRUNC(install_time, DAY) installed_day,
+  DATE_TRUNC(install_time, WEEK(MONDAY)) installed_week,
+  DATE_TRUNC(install_time, MONTH) installed_month,
+  event_name,
+  DATE_DIFF(CURRENT_DATE(), DATE(install_time), DAY) AS days_since_install,
+  DATE_DIFF(CURRENT_DATE(), DATE(install_time), WEEK(MONDAY)) AS weeks_since_install,
+  DATE_DIFF(CURRENT_DATE(), DATE(install_time), MONTH) AS months_since_install,
+    CASE WHEN campaign IS NULL THEN "ORGANIC" ELSE campaign END AS campaign,
+    country_code,
+    "id6738990592" AS app_id,
+    CASE
+    WHEN IF(media_source='',NULL, media_source) IN ("facebook", "Facebook" "Facebook Ads", "fb", "restricted", 'future_boy', 'ig', 'old_memory', 'w2a_new', 'dreamy_wedding', 'future_boy', 'mermaid', 'old_memory', 'future_girl', 'dj', 'custom') THEN "facebook"
+    WHEN IF(media_source='',NULL, media_source) LIKE "%tiktok%" THEN "Tiktok"
+    WHEN IF(media_source='',NULL, media_source) LIKE "%w2a%" OR IF(media_source='',NULL, media_source) = "website_to_app" THEN "W2A"
+    WHEN IF(media_source='',NULL, media_source) IN ("googleadwords_int", "googleads_int") THEN "google"
+    WHEN IF(media_source='',NULL, media_source) IS NULL THEN "ORGANIC"
+    WHEN IF(media_source='',NULL, media_source) = "organic_landing" THEN "ORGANIC"
+    WHEN IF(media_source='',NULL, media_source) IN ("User_invite", "user_invite") THEN "User Invite"
+    ELSE IF(media_source='',NULL, media_source)
+END
+  AS media_source,
+    "IOS" AS operating_system,
+    ad_names.most_recent_ad_name AS most_recent_ad_name,
+    af_adset AS ad_set,
+    CAST(event_revenue AS FLOAT64) AS revenue,
+    DATE(event_time) event_time,
+    customer_user_id,
+    DATE_DIFF(DATE(event_time), DATE(install_time), DAY) AS day_difference,
+    DATE_DIFF(DATE(event_time), DATE(install_time), WEEK(MONDAY)) AS week_difference,
+    DATE_DIFF(DATE(event_time), DATE(install_time), MONTH) AS month_difference
+    
+  FROM `rockads-thirdparty.appsflyer.id6738990592_in_app_events` t
+  LEFT JOIN ad_names ON ad_names.ad_name = t.af_ad
+  WHERE event_name LIKE "%rc%" AND DATE_DIFF(DATE(event_time), DATE(install_time), DAY) >= 0 AND  DATE(event_time) < "2025-06-01"
+UNION ALL
+  SELECT
+  DATE_TRUNC(install_time, DAY) installed_day,
+  DATE_TRUNC(install_time, WEEK(MONDAY)) installed_week,
+  DATE_TRUNC(install_time, MONTH) installed_month,
+  event_name,
+  DATE_DIFF(CURRENT_DATE(), DATE(install_time), DAY) AS days_since_install,
+  DATE_DIFF(CURRENT_DATE(), DATE(install_time), WEEK(MONDAY)) AS weeks_since_install,
+  DATE_DIFF(CURRENT_DATE(), DATE(install_time), MONTH) AS months_since_install,
+    CASE WHEN campaign IS NULL OR campaign = ""  THEN "ORGANIC" ELSE campaign END AS campaign,
+    country_code,
+    "id6738990592" AS app_id,
+    CASE
+    WHEN IF(media_source='',NULL, media_source) IN ("facebook", "Facebook" "Facebook Ads", "fb", "restricted", 'future_boy', 'ig', 'old_memory', 'w2a_new', 'dreamy_wedding', 'future_boy', 'mermaid', 'old_memory', 'future_girl', 'dj', 'custom') THEN "facebook"
+    WHEN IF(media_source='',NULL, media_source) LIKE "%tiktok%" THEN "Tiktok"
+    WHEN IF(media_source='',NULL, media_source) LIKE "%w2a%" OR IF(media_source='',NULL, media_source) = "website_to_app" THEN "W2A"
+    WHEN IF(media_source='',NULL, media_source) IN ("googleadwords_int", "googleads_int") THEN "google"
+    WHEN IF(media_source='',NULL, media_source) IS NULL THEN "ORGANIC"
+    WHEN IF(media_source='',NULL, media_source) = "organic_landing" THEN "ORGANIC"
+    WHEN IF(media_source='',NULL, media_source) IN ("User_invite", "user_invite") THEN "User Invite"
+    ELSE IF(media_source='',NULL, media_source)
+END
+  AS media_source,
+    "IOS" AS operating_system,
+    ad_names.most_recent_ad_name AS most_recent_ad_name,
+    af_adset AS ad_set,
+    SAFE_CAST(NULLIF(event_revenue, '') AS FLOAT64) AS revenue,
+    DATE(event_time) event_time,
+    customer_user_id,
+    DATE_DIFF(DATE(event_time), DATE(install_time), DAY) AS day_difference,
+    DATE_DIFF(DATE(event_time), DATE(install_time), WEEK(MONDAY)) AS week_difference,
+    DATE_DIFF(DATE(event_time), DATE(install_time), MONTH) AS month_difference
+    
+  FROM `rockads-thirdparty.appsflyer_airflow.id6738990592_in_app_events` t
+  LEFT JOIN ad_names ON ad_names.ad_name = t.af_ad
+  WHERE event_name LIKE "%rc%" AND DATE_DIFF(DATE(event_time), DATE(install_time), DAY) >= 0 AND  DATE(event_time) >= "2025-06-01"
+UNION ALL
+  SELECT
+  DATE_TRUNC(install_time, DAY) installed_day,
+  DATE_TRUNC(install_time, WEEK(MONDAY)) installed_week,
+  DATE_TRUNC(install_time, MONTH) installed_month,
+  event_name,
+  DATE_DIFF(CURRENT_DATE(), DATE(install_time), DAY) AS days_since_install,
+  DATE_DIFF(CURRENT_DATE(), DATE(install_time), WEEK(MONDAY)) AS weeks_since_install,
+  DATE_DIFF(CURRENT_DATE(), DATE(install_time), MONTH) AS months_since_install,
+    CASE WHEN campaign IS NULL OR campaign = ""  THEN "ORGANIC" ELSE campaign END AS campaign,
+    country_code,
+    "id6738990592" AS app_id,
+    CASE
+    WHEN IF(media_source='',NULL, media_source) IN ("facebook", "Facebook" "Facebook Ads", "fb", "restricted", 'future_boy', 'ig', 'old_memory', 'w2a_new', 'dreamy_wedding', 'future_boy', 'mermaid', 'old_memory', 'future_girl', 'dj', 'custom') THEN "facebook"
+    WHEN IF(media_source='',NULL, media_source) LIKE "%tiktok%" THEN "Tiktok"
+    WHEN IF(media_source='',NULL, media_source) LIKE "%w2a%" OR IF(media_source='',NULL, media_source) = "website_to_app" THEN "W2A"
+    WHEN IF(media_source='',NULL, media_source) IN ("googleadwords_int", "googleads_int") THEN "google"
+    WHEN IF(media_source='',NULL, media_source) IS NULL THEN "ORGANIC"
+    WHEN IF(media_source='',NULL, media_source) = "organic_landing" THEN "ORGANIC"
+    WHEN IF(media_source='',NULL, media_source) IN ("User_invite", "user_invite") THEN "User Invite"
+    ELSE IF(media_source='',NULL, media_source)
+END
+  AS media_source,
+    "ANDROID" AS operating_system,
+    ad_names.most_recent_ad_name AS most_recent_ad_name,
+    af_adset AS ad_set,
+    SAFE_CAST(NULLIF(event_revenue, '') AS FLOAT64) AS revenue,
+    DATE(event_time) event_time,
+    customer_user_id,
+    DATE_DIFF(DATE(event_time), DATE(install_time), DAY) AS day_difference,
+    DATE_DIFF(DATE(event_time), DATE(install_time), WEEK(MONDAY)) AS week_difference,
+    DATE_DIFF(DATE(event_time), DATE(install_time), MONTH) AS month_difference
+    
+  FROM `rockads-thirdparty.appsflyer_airflow.com_videoai_effects_in_app_events` t
+  LEFT JOIN ad_names ON ad_names.ad_name = t.af_ad
+  WHERE event_name LIKE "%rc%" AND DATE_DIFF(DATE(event_time), DATE(install_time), DAY) >= 0  AND DATE(event_time) >= '2025-06-12'
+  UNION ALL
+  SELECT
+  DATE_TRUNC(install_time, DAY) installed_day,
+  DATE_TRUNC(install_time, WEEK(MONDAY)) installed_week,
+  DATE_TRUNC(install_time, MONTH) installed_month,
+  event_name, 
+  DATE_DIFF(CURRENT_DATE(), DATE(install_time), DAY) AS days_since_install,
+  DATE_DIFF(CURRENT_DATE(), DATE(install_time), WEEK(MONDAY)) AS weeks_since_install,
+  DATE_DIFF(CURRENT_DATE(), DATE(install_time), MONTH) AS months_since_install,
+    CASE WHEN campaign IS NULL THEN "ORGANIC" ELSE campaign END AS campaign,
+    country_code,
+    "id6738990592" AS app_id,
+    CASE
+    WHEN IF(media_source='',NULL, media_source) IN ("facebook", "Facebook" "Facebook Ads", "fb", "restricted", 'future_boy', 'ig', 'old_memory', 'w2a_new', 'dreamy_wedding', 'future_boy', 'mermaid', 'old_memory', 'future_girl', 'dj', 'custom') THEN "facebook"
+    WHEN IF(media_source='',NULL, media_source) LIKE "%tiktok%" THEN "Tiktok"
+    WHEN IF(media_source='',NULL, media_source) LIKE "%w2a%" OR IF(media_source='',NULL, media_source) = "website_to_app" THEN "W2A"
+    WHEN IF(media_source='',NULL, media_source) IN ("googleadwords_int", "googleads_int") THEN "google"
+    WHEN IF(media_source='',NULL, media_source) IS NULL THEN "ORGANIC"
+    WHEN IF(media_source='',NULL, media_source) = "organic_landing" THEN "ORGANIC"
+    WHEN IF(media_source='',NULL, media_source) IN ("User_invite", "user_invite") THEN "User Invite"
+    ELSE IF(media_source='',NULL, media_source)
+END
+  AS media_source,
+    "ANDROID" AS operating_system,
+    ad_names.most_recent_ad_name AS most_recent_ad_name,
+    af_adset AS ad_set,
+    CAST(event_revenue AS FLOAT64) AS revenue,
+    DATE(event_time) event_time,
+    customer_user_id,
+    DATE_DIFF(DATE(event_time), DATE(install_time), DAY) AS day_difference,
+    DATE_DIFF(DATE(event_time), DATE(install_time), WEEK(MONDAY)) AS week_difference,
+    DATE_DIFF(DATE(event_time), DATE(install_time), MONTH) AS month_difference
+    
+  FROM `rockads-thirdparty.appsflyer.com_videoai_effects_in_app_events` t
+  LEFT JOIN ad_names ON ad_names.ad_name = t.af_ad
+  WHERE event_name LIKE "%rc%" AND DATE_DIFF(DATE(event_time), DATE(install_time), DAY) >= 0 AND DATE(event_time) < '2025-06-12'
+  UNION ALL
+  SELECT
+  DATE_TRUNC(install_time, DAY) installed_day,
+  DATE_TRUNC(install_time, WEEK(MONDAY)) installed_week,
+  DATE_TRUNC(install_time, MONTH) installed_month,
+  event_name,
+  DATE_DIFF(CURRENT_DATE(), DATE(install_time), DAY) AS days_since_install,
+  DATE_DIFF(CURRENT_DATE(), DATE(install_time), WEEK(MONDAY)) AS weeks_since_install,
+  DATE_DIFF(CURRENT_DATE(), DATE(install_time), MONTH) AS months_since_install,
+    CASE WHEN campaign IS NULL THEN "ORGANIC" ELSE campaign END AS campaign,
+    country_code,
+    "id6738990592" AS app_id,
+    CASE
+    WHEN IF(media_source='',NULL, media_source) IN ("facebook", "Facebook" "Facebook Ads", "fb", "restricted", 'future_boy', 'ig', 'old_memory', 'w2a_new', 'dreamy_wedding', 'future_boy', 'mermaid', 'old_memory', 'future_girl', 'dj', 'custom') THEN "facebook"
+    WHEN IF(media_source='',NULL, media_source) LIKE "%tiktok%" THEN "Tiktok"
+    WHEN IF(media_source='',NULL, media_source) LIKE "%w2a%" OR IF(media_source='',NULL, media_source) = "website_to_app" THEN "W2A"
+    WHEN IF(media_source='',NULL, media_source) IN ("googleadwords_int", "googleads_int") THEN "google"
+    WHEN IF(media_source='',NULL, media_source) IS NULL THEN "ORGANIC"
+    WHEN IF(media_source='',NULL, media_source) = "organic_landing" THEN "ORGANIC"
+    WHEN IF(media_source='',NULL, media_source) IN ("User_invite", "user_invite") THEN "User Invite"
+    ELSE IF(media_source='',NULL, media_source)
+END
+  AS media_source,
+    "IOS" AS operating_system,
+    ad_names.most_recent_ad_name AS most_recent_ad_name,
+    NULL AS ad_set,
+    CAST(event_revenue AS FLOAT64) AS revenue,
+    DATE(event_time) event_time,
+    customer_user_id,
+    DATE_DIFF(DATE(event_time), DATE(install_time), DAY) AS day_difference,
+    DATE_DIFF(DATE(event_time), DATE(install_time), WEEK(MONDAY)) AS week_difference,
+    DATE_DIFF(DATE(event_time), DATE(install_time), MONTH) AS month_difference
+  FROM `rockads-thirdparty.appsflyer.id6738990592_organic_in_app_events` t
+  LEFT JOIN ad_names ON ad_names.ad_name = t.af_ad
+  WHERE event_name LIKE "%rc%" AND DATE_DIFF(DATE(event_time), DATE(install_time), DAY) >= 0 
+  UNION ALL
+  SELECT
+  DATE_TRUNC(install_time, DAY) installed_day,
+  DATE_TRUNC(install_time, WEEK(MONDAY)) installed_week,
+  DATE_TRUNC(install_time, MONTH) installed_month,
+  event_name,
+  DATE_DIFF(CURRENT_DATE(), DATE(install_time), DAY) AS days_since_install,
+  DATE_DIFF(CURRENT_DATE(), DATE(install_time), WEEK(MONDAY)) AS weeks_since_install,
+  DATE_DIFF(CURRENT_DATE(), DATE(install_time), MONTH) AS months_since_install,
+    CASE WHEN campaign IS NULL THEN "ORGANIC" ELSE campaign END AS campaign,
+    country_code,
+    "id6738990592" AS app_id,
+    CASE
+    WHEN IF(media_source='',NULL, media_source) IN ("facebook", "Facebook" "Facebook Ads", "fb", "restricted", 'future_boy', 'ig', 'old_memory', 'w2a_new', 'dreamy_wedding', 'future_boy', 'mermaid', 'old_memory', 'future_girl', 'dj', 'custom') THEN "facebook"
+    WHEN IF(media_source='',NULL, media_source) LIKE "%tiktok%" THEN "Tiktok"
+    WHEN IF(media_source='',NULL, media_source) LIKE "%w2a%" OR IF(media_source='',NULL, media_source) = "website_to_app" THEN "W2A"
+    WHEN IF(media_source='',NULL, media_source) IN ("googleadwords_int", "googleads_int") THEN "google"
+    WHEN IF(media_source='',NULL, media_source) IS NULL THEN "ORGANIC"
+    WHEN IF(media_source='',NULL, media_source) = "organic_landing" THEN "ORGANIC"
+    WHEN IF(media_source='',NULL, media_source) IN ("User_invite", "user_invite") THEN "User Invite"
+    ELSE IF(media_source='',NULL, media_source)
+END
+  AS media_source,
+    "ANDROID" AS operating_system,
+    ad_names.most_recent_ad_name AS most_recent_ad_name,
+    NULL AS ad_set,
+    CAST(event_revenue AS FLOAT64) AS revenue,
+    DATE(event_time) event_time,
+    customer_user_id,
+    DATE_DIFF(DATE(event_time), DATE(install_time), DAY) AS day_difference,
+    DATE_DIFF(DATE(event_time), DATE(install_time), WEEK(MONDAY)) AS week_difference,
+    DATE_DIFF(DATE(event_time), DATE(install_time), MONTH) AS month_difference
+    
+  FROM `rockads-thirdparty.appsflyer.com_videoai_effects_organic_in_app_events` t
+  LEFT JOIN ad_names ON ad_names.ad_name = t.af_ad
+  WHERE event_name LIKE "%rc%" AND DATE_DIFF(DATE(event_time), DATE(install_time), DAY) >= 0 
+),
+
+geo AS (
+  SELECT
+  DATE_TRUNC(report_date, DAY) AS report_day, 
+  DATE_TRUNC(report_date, WEEK(MONDAY)) AS report_week,
+  DATE_TRUNC(report_date, MONTH) AS report_month,
+    CASE WHEN campaign IS NULL THEN "ORGANIC" ELSE campaign END AS campaign,
+    "id6738990592" AS app_id,
+    CASE
+    WHEN IF(media_source='',NULL, media_source) IN ("facebook", "Facebook" "Facebook Ads", "fb", "restricted", 'future_boy', 'ig', 'old_memory', 'w2a_new', 'dreamy_wedding', 'future_boy', 'mermaid', 'old_memory', 'future_girl', 'dj', 'custom') THEN "facebook"
+    WHEN IF(media_source='',NULL, media_source) LIKE "%tiktok%" THEN "Tiktok"
+    WHEN IF(media_source='',NULL, media_source) LIKE "%w2a%" OR IF(media_source='',NULL, media_source) = "website_to_app" THEN "W2A"
+    WHEN IF(media_source='',NULL, media_source) IN ("googleadwords_int", "googleads_int") THEN "google"
+    WHEN IF(media_source='',NULL, media_source) IS NULL THEN "ORGANIC"
+    WHEN IF(media_source='',NULL, media_source) = "organic_landing" THEN "ORGANIC"
+    WHEN IF(media_source='',NULL, media_source) IN ("User_invite", "user_invite") THEN "User Invite"
+    ELSE IF(media_source='',NULL, media_source)
+END
+  AS media_source,
+ IF(appsflyer_os_id IS NULL,
+      CASE
+        WHEN REGEXP_CONTAINS(campaign, r'and_') THEN 'ANDROID'
+        WHEN REGEXP_CONTAINS(campaign, r'IOS_') THEN 'IOS'
+        WHEN REGEXP_CONTAINS(campaign, r'ios_') THEN 'IOS'
+        WHEN REGEXP_CONTAINS(campaign, r'w2a') THEN 'W2A'
+      END,
+      CASE
+        WHEN REGEXP_CONTAINS(campaign, r'ios_') THEN 'IOS' 
+        WHEN REGEXP_CONTAINS(appsflyer_os_id, r'_') THEN 'ANDROID'
+        ELSE 'IOS'
+      END
+    ) AS operating_system,
+    ad_names.most_recent_ad_name AS most_recent_ad_name,
+    adset AS ad_set,
+    geo AS country_code,
+  SUM( event_revenue) event_revenue,
+    total_cost,
+    total_master_installs AS  total_installs,
+    total_clicks,
+    total_impressions
+
+  FROM `rockads-thirdparty.id6738990592_appsflyer_ds.id6738990592_platforms_merged_metrics_all_cost_geo_unique_with_links` t
+  LEFT JOIN ad_names ON ad_names.ad_name = t.ad
+  group by all
+  
+),
+
+geo_daily_agg AS (
+
+ SELECT
+  report_day, 
+  campaign,
+  app_id,
+  media_source,
+  operating_system,
+  most_recent_ad_name,
+  country_code,
+  country_code AS country,
+  ad_set,
+  SUM(event_revenue) total_revenue,
+  SUM(total_cost) total_cost,
+  SUM(total_installs) total_installs,
+  SUM(total_clicks) total_clicks,
+  SUM(total_impressions) total_impressions,
+  ARRAY_AGG(IFNULL(CAST(total_cost AS STRING),'')) ltv_cost,
+  ARRAY_AGG(IFNULL(CAST(event_revenue AS STRING),'')) ltv_revenue,
+  ARRAY_AGG((IFNULL(CAST(total_installs AS STRING), ''))) ltv_installs,
+  ARRAY_AGG(IFNULL(CAST(total_clicks AS STRING), '')) ltv_clicks,
+  ARRAY_AGG(IFNULL(CAST(total_impressions AS STRING), '')) ltv_impressions,
+  ${videa_cohorts_libs.daily_cost}
+  ARRAY_AGG(IFNULL(CAST(total_cost AS STRING),'')) AS cost_grandtotal,
+  ${videa_cohorts_libs.daily_installs}
+  ARRAY_AGG(IFNULL(CAST(total_installs AS STRING),'')) AS installs_grandtotal
+  FROM geo 
+  GROUP BY 1,2,3,4,5,6,7,8,9
+),
+
+ltv_predictions_ranked AS (
+
+  SELECT 
+  install_date,
+  country,
+  operating_system,
+  CASE
+    WHEN IF(media_source='',NULL, media_source) IN ("facebook", "Facebook" "Facebook Ads", "fb", "restricted", 'future_boy', 'ig', 'old_memory', 'w2a_new', 'dreamy_wedding', 'future_boy', 'mermaid', 'old_memory', 'future_girl', 'dj', 'custom') THEN "facebook"
+    WHEN IF(media_source='',NULL, media_source) LIKE "%tiktok%" THEN "Tiktok"
+    WHEN IF(media_source='',NULL, media_source) LIKE "%w2a%" OR IF(media_source='',NULL, media_source) = "website_to_app" THEN "W2A"
+    WHEN IF(media_source='',NULL, media_source) IN ("googleadwords_int", "googleads_int") THEN "google"
+    WHEN IF(media_source='',NULL, media_source) IS NULL THEN "ORGANIC"
+    WHEN IF(media_source='',NULL, media_source) = "organic_landing" THEN "ORGANIC"
+    WHEN IF(media_source='',NULL, media_source) IN ("User_invite", "user_invite") THEN "User Invite"
+    ELSE IF(media_source='',NULL, media_source)
+END
+  AS media_source,
+  '' AS ad_set,
+  campaign,
+  ad_name,
+  predicted_ltv,
+  _TABLE_SUFFIX,
+  FROM `rockads-thirdparty.appsflyer_ltv.predictions_ltv_30_2*` 
+),
+
+ltv_predictions AS (
+  SELECT 
+  install_date,
+  country,
+  operating_system,
+  media_source,
+  campaign,
+  ad_name,
+  ad_set,
+  SUM(predicted_ltv) AS ltv_predicted30
+  FROM ltv_predictions_ranked
+  GROUP BY 1,2,3,4,5,6,7, _TABLE_SUFFIX
+  QUALIFY ROW_NUMBER() OVER (PARTITION BY install_date,country,operating_system,media_source,campaign,ad_name ORDER BY _TABLE_SUFFIX DESC) = 1
+),
+
+ltv_predictions_agg AS (
+  SELECT 
+  install_date,
+  country,
+  operating_system,
+  media_source,
+  campaign,
+  ad_name,
+  ad_set,
+  ARRAY_AGG(IFNULL(CAST(ltv_predicted30 AS STRING),'')) AS ltv_predicted30
+  FROM ltv_predictions
+  GROUP BY 1,2,3,4,5,6,7
+),
+
+daily_agg AS (
+SELECT  
+    installed_day,
+    campaign,
+    country_code AS country,
+    app_id,
+    media_source,
+    operating_system,
+    most_recent_ad_name,
+    ad_set,
+    days_since_install,
+    day_difference,
+    customer_user_id,
+    revenue
+    FROM events i
+
+),
+
+users_joined AS (
+SELECT  
+    installed_day,
+    country,
+    campaign,
+    app_id,
+    ad_set,
+    media_source,
+    most_recent_ad_name,
+    operating_system,
+    ${videa_cohorts_libs.daily_users}
+    FROM daily_agg i
+    
+  GROUP BY 1,2,3,4,5,6,7,8,day_difference,days_since_install
+
+),
+revenues_joined AS (
+SELECT  
+    installed_day,
+    country,
+    campaign,
+    app_id,
+    ad_set,
+    media_source,
+    most_recent_ad_name,
+    operating_system,
+    ${videa_cohorts_libs.daily_revenues}
+    FROM daily_agg i
+
+  GROUP BY 1,2,3,4,5,6,7,8,day_difference,days_since_install
+
+),
+ltv_joined AS (
+SELECT  
+    installed_day,
+    country,
+    campaign,
+    app_id,
+    ad_set,
+    media_source,
+    most_recent_ad_name,
+    operating_system,
+    ${videa_cohorts_libs.daily_ltv}
+    FROM daily_agg i
+
+  GROUP BY 1,2,3,4,5,6,7,8,day_difference,days_since_install
+
+),
+cumulative_users_joined AS (
+SELECT  
+    installed_day,
+    country,
+    campaign,
+    app_id,
+    ad_set,
+    media_source,
+    most_recent_ad_name,
+    operating_system,
+    ${videa_cohorts_libs.daily_cumulative_users}
+    FROM daily_agg i
+
+  GROUP BY 1,2,3,4,5,6,7,8,day_difference,days_since_install
+
+),
+
+users_pivoted AS (
+SELECT
+    DATE(installed_day) AS install_time,
+    country,
+    campaign,
+    app_id,
+    ad_set,
+    media_source,
+    most_recent_ad_name,
+    operating_system,
+    SPLIT(metric_period, '_')[OFFSET(0)] AS metric,
+    SPLIT(metric_period, '_')[OFFSET(1)] AS period,
+  value
+  FROM users_joined
+  UNPIVOT (value FOR metric_period IN (
+userid_0, userid_1, userid_2, userid_3, userid_4, userid_5, userid_6, userid_7, userid_8, userid_9, userid_10, userid_15, userid_30, userid_60, userid_90, userid_120, userid_150, userid_180, userid_210, userid_240, userid_270, userid_300, userid_330, userid_360, userid_grandtotal  ))),
+
+revenue_pivoted  AS (
+SELECT
+    DATE(installed_day) AS install_time,
+    country,
+    campaign,
+    app_id,
+    ad_set,
+    media_source,
+    most_recent_ad_name,
+    operating_system,
+    SPLIT(metric_period, '_')[OFFSET(0)] AS metric,
+    SPLIT(metric_period, '_')[OFFSET(1)] AS period,
+  value
+  FROM revenues_joined
+  UNPIVOT (value FOR metric_period IN (
+revenue_0, revenue_1, revenue_2, revenue_3, revenue_4, revenue_5, revenue_6, revenue_7, revenue_8, revenue_9, revenue_10, revenue_15, revenue_30, revenue_60, revenue_90, revenue_120, revenue_150, revenue_180, revenue_210, revenue_240, revenue_270, revenue_300, revenue_330, revenue_360))),
+
+geo_pivoted  AS (
+SELECT
+    report_day AS install_time,
+    country,
+    campaign,
+    app_id,
+    ad_set,
+    media_source,
+    most_recent_ad_name,
+    operating_system,
+    SPLIT(metric_period, '_')[OFFSET(0)] AS metric,
+    SPLIT(metric_period, '_')[OFFSET(1)] AS period,
+  value
+  FROM geo_daily_agg
+  UNPIVOT (value FOR metric_period IN (cost_0,cost_1,cost_2,cost_3,cost_4,cost_5,cost_6,cost_7,cost_8,
+  cost_9,cost_10,cost_15,cost_30,cost_60,cost_90,cost_120,cost_150,cost_180,cost_210,cost_240,cost_270,
+  cost_300,cost_330,cost_360, cost_grandtotal,installs_0,installs_1,installs_2,installs_3,installs_4,installs_5,installs_6,installs_7,installs_8,
+  installs_9,installs_10,installs_15,installs_30,installs_60,installs_90,installs_120,installs_150,installs_180,installs_210,installs_240,installs_270,
+  installs_300,installs_330,installs_360, installs_grandtotal, ltv_installs, ltv_clicks, ltv_impressions, ltv_revenue, ltv_cost))
+           
+  ),
+
+ltv_pivoted  AS (
+SELECT
+    DATE(installed_day) AS install_time,
+    country,
+    campaign,
+    app_id,
+    ad_set,
+    media_source,
+    most_recent_ad_name,
+    operating_system,
+    SPLIT(metric_period, '_')[OFFSET(0)] AS metric,
+    SPLIT(metric_period, '_')[OFFSET(1)] AS period,
+  value
+  FROM ltv_joined
+  UNPIVOT (value FOR metric_period IN (ltv_0, ltv_1, ltv_2, ltv_3, ltv_4, ltv_5, ltv_6, ltv_7, ltv_8, ltv_9, ltv_10, ltv_15, ltv_30, ltv_60, ltv_90, ltv_120, ltv_150, ltv_180, ltv_210, ltv_240, ltv_270, ltv_300, ltv_330, ltv_360, ltv_grandtotal
+))),
+
+ltv_predictions_pivoted AS (
+  SELECT 
+  install_date AS install_time,
+  country,
+  campaign,
+  "id6738990592" AS app_id,
+  ad_set,
+  media_source,
+  ad_name AS most_recent_ad_name,
+  operating_system,
+  SPLIT(metric_period, '_')[OFFSET(0)] AS metric,
+  SPLIT(metric_period, '_')[OFFSET(1)] AS period,
+  value 
+  FROM ltv_predictions_agg 
+  UNPIVOT (value FOR metric_period IN (ltv_predicted30))
+),
+
+cumulative_users_pivoted  AS (
+SELECT
+    DATE(installed_day) AS install_time,
+    country,
+    campaign,
+    app_id,
+    ad_set,
+    media_source,
+    most_recent_ad_name,
+    operating_system,
+    SPLIT(metric_period, '_')[OFFSET(0)] AS metric,
+    SPLIT(metric_period, '_')[OFFSET(1)] AS period,
+  value
+  FROM cumulative_users_joined
+  UNPIVOT (value FOR metric_period IN (cumuserid_0, cumuserid_1, cumuserid_2, cumuserid_3, cumuserid_4, cumuserid_5, cumuserid_6, cumuserid_7, cumuserid_8, cumuserid_9, cumuserid_10, cumuserid_15, cumuserid_30, cumuserid_60, cumuserid_90, cumuserid_120, cumuserid_150, cumuserid_180, cumuserid_210, cumuserid_240, cumuserid_270, cumuserid_300, cumuserid_330, cumuserid_360, cumuserid_grandtotal
+
+))),
+
+combined AS (
+SELECT * FROM users_pivoted
+UNION ALL 
+SELECT * FROM revenue_pivoted
+UNION ALL 
+SELECT * FROM geo_pivoted
+UNION ALL 
+SELECT * FROM ltv_pivoted
+UNION ALL 
+SELECT * FROM cumulative_users_pivoted
+UNION ALL 
+SELECT * FROM ltv_predictions_pivoted
+)
+
+select * from combined

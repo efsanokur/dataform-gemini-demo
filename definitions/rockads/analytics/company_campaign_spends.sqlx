@@ -1,0 +1,157 @@
+config {
+  type: "table",
+  database: `${dataform.projectConfig.vars.rockadsProject}`,
+  name: "company_campaign_spends",
+  schema: "company_stats",
+  tags: ['facebook', 'google_ads', 'tiktok', 'snapchat'],
+  dependencies: ["facebook_campaign_spends_report", "googleads_report_campaign_spends",
+   "tiktok_report_os", "tiktok_report_country", "snapchat_report_os", "snapchat_report_country"]
+}
+
+SELECT
+  created_time AS date,
+  CASE
+    WHEN business_name = "Getcontact - Getverify LDA" THEN "Getcontact"
+    WHEN business_name = "Rockads - Kompanion Fitself" THEN "Kompanion"
+    WHEN LOWER(account_name) LIKE "%moyra%" THEN "Moyra Teknoloji"
+    WHEN LOWER(account_name) LIKE "%kegel%"
+  OR LOWER(account_name) LIKE "%moovbuddy%"
+  OR LOWER(account_name) LIKE "%youngface%" THEN "DGT Yazılım"
+END
+  AS company,
+  "Facebook" AS channel,
+  account_name,
+  platform,
+  country_name,
+  total_spend_usd
+FROM
+  `${dataform.projectConfig.vars.rockadsProject}.thirdparty_datamarts.facebook_campaign_spends_report`
+WHERE
+  (business_name IN ("Getcontact - Getverify LDA",
+      "Rockads - Kompanion Fitself")
+    OR LOWER(account_name) LIKE "%moyra%"
+    OR LOWER(account_name) LIKE "%kegel%"
+    OR LOWER(account_name) LIKE "%moovbuddy%"
+    OR LOWER(account_name) LIKE "%youngface%")
+  AND LOWER(account_name) NOT LIKE "%esim%"
+UNION ALL
+SELECT
+  created_time AS date,
+  CASE
+    WHEN LOWER(customer_client_name) LIKE "%kompanion%" THEN "Kompanion"
+    WHEN LOWER(customer_client_name) LIKE "%moyra%" THEN "Moyra Teknoloji"
+    WHEN LOWER(customer_client_name) LIKE "%kegel%" OR LOWER(customer_client_name) LIKE "%moovbuddy%" OR LOWER(customer_client_name) LIKE "%youngface%" THEN "DGT Yazılım"
+    ELSE "Getcontact"
+END
+  AS company,
+  "GoogleAds" AS channel,
+  customer_client_name AS account_name,
+  platform,
+  country_name,
+  total_spend_usd
+FROM
+  `${dataform.projectConfig.vars.rockadsProject}.thirdparty_datamarts.googleads_report_campaign_spends`
+WHERE
+  (LOWER(customer_client_name) LIKE "%getcontact%"
+    OR LOWER(customer_client_name) LIKE "%gtc%"
+    OR LOWER(customer_client_name) LIKE "%kompanion%"
+    OR LOWER(customer_client_name) LIKE "%moyra%"
+    OR LOWER(customer_client_name) LIKE "%kegel%"
+    OR LOWER(customer_client_name) LIKE "%moovbuddy%"
+    OR LOWER(customer_client_name) LIKE "%youngface%")
+  AND LOWER(customer_client_name) NOT LIKE "%esim%"
+UNION ALL
+SELECT
+  created_time AS date,
+  "Getcontact" AS company,
+  "Tiktok" AS channel,
+  account_name,
+  CASE
+    WHEN LOWER(platform) LIKE "%iphone%" OR LOWER(platform) LIKE "%ipad%" THEN "iOS"
+    WHEN LOWER(platform) LIKE "%android%" THEN "Android"
+END
+  AS platform,
+  "" AS country_name,
+  total_spend AS total_spend_usd
+FROM
+  `${dataform.projectConfig.vars.rockadsProject}.thirdparty_datamarts.tiktok_report_os`
+WHERE
+  platform IN ("iphone",
+    "android",
+    "ipad")
+  AND (LOWER(account_name) LIKE "%getcontact%"
+    OR LOWER(account_name) LIKE "%gtc%")
+  AND LOWER(account_name) NOT LIKE "%esim%"
+UNION ALL
+SELECT
+  created_time AS date,
+  CASE
+    WHEN LOWER(account_name) LIKE "%kompanion%" THEN "Kompanion"
+    WHEN LOWER(account_name) LIKE "%moyra%" THEN "Moyra Teknoloji"
+    WHEN LOWER(account_name) LIKE "%kegel%" OR LOWER(account_name) LIKE "%moovbuddy%" OR LOWER(account_name) LIKE "%youngface%" THEN "DGT Yazılım"
+END
+  AS company,
+  "Tiktok" AS channel,
+  account_name,
+  CASE
+    WHEN LOWER(account_name) LIKE "%ios%" THEN "iOS"
+    WHEN LOWER(account_name) LIKE "%android%" THEN "Android"
+    WHEN LOWER(account_name) LIKE "%web%" THEN "Web"
+END
+  AS platform,
+  country AS country_name,
+  total_spend AS total_spend_usd
+FROM
+  `${dataform.projectConfig.vars.rockadsProject}.thirdparty_datamarts.tiktok_report_country`
+WHERE
+  LOWER(account_name) LIKE "%moyra%"
+  OR LOWER(account_name) LIKE "%kompanion%"
+  OR LOWER(account_name) LIKE "%kegel%"
+  OR LOWER(account_name) LIKE "%moovbuddy%"
+  OR LOWER(account_name) LIKE "%youngface%"
+UNION ALL
+SELECT
+  created_time AS date,
+  CASE
+    WHEN LOWER(account_name) LIKE "%kompanion%" THEN "Kompanion"
+    WHEN LOWER(account_name) LIKE "%moyra%" THEN "Moyra Teknoloji"
+    WHEN LOWER(account_name) LIKE "%kegel%" OR LOWER(account_name) LIKE "%moovbuddy%" OR LOWER(account_name) LIKE "%youngface%" THEN "DGT Yazılım"
+END
+  AS company,
+  "Snapchat" AS channel,
+  account_name,
+  CASE
+    WHEN LOWER(account_name) LIKE "%ios%" THEN "iOS"
+    WHEN LOWER(account_name) LIKE "%android%" THEN "Android"
+    WHEN LOWER(account_name) LIKE "%web%" THEN "Web"
+END
+  AS platform,
+  country AS country_name,
+  total_spend AS total_spend_usd
+FROM
+  `${dataform.projectConfig.vars.rockadsProject}.thirdparty_datamarts.snapchat_report_country`
+WHERE
+  LOWER(account_name) LIKE "%moyra%"
+  OR LOWER(account_name) LIKE "%kompanion%"
+  OR LOWER(account_name) LIKE "%kegel%"
+  OR LOWER(account_name) LIKE "%moovbuddy%"
+  OR LOWER(account_name) LIKE "%youngface%"
+UNION ALL
+SELECT
+  created_time AS date,
+  "Getcontact" AS company,
+  "Snapchat" AS channel,
+  account_name,
+  CASE
+    WHEN LOWER(platform) LIKE "%ios%" THEN "iOS"
+    WHEN LOWER(platform) LIKE "%android%" THEN "Android"
+    WHEN LOWER(platform) LIKE "%web%" THEN "Web"
+END
+  AS platform,
+  "" AS country_name,
+  total_spend AS total_spend_usd
+FROM
+  `${dataform.projectConfig.vars.rockadsProject}.thirdparty_datamarts.snapchat_report_os`
+WHERE
+  LOWER(account_name) LIKE "%getcontact%"
+  OR LOWER(account_name) LIKE "%gtc%"

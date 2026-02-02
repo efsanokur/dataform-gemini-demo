@@ -1,0 +1,45 @@
+config {
+  type: "table",
+  bigquery: {
+    partitionBy: "event_date",
+    clusterBy: ["country_code"]
+  },
+  database: `${dataform.projectConfig.vars.rockadsProject}`,
+  name: "appsflyer_revenues",
+  schema: "appsflyer_airbyte_datamarts",
+  tags: ['appsflyer_airbyte_pipeline']
+}
+
+WITH
+  main_raw_data AS (
+  SELECT
+    campaign,
+    af_ad,
+    af_ad_id,
+    media_source,
+    country_code,
+    DATE(DATETIME(install_time, "Europe/Istanbul")) AS event_date,
+    CAST(JSON_EXTRACT_SCALAR(event_value, '$.af_price')AS FLOAT64) AS event_value_af_price,
+    CAST(JSON_EXTRACT_SCALAR(event_value, '$.af_revenue')AS FLOAT64) AS event_value_af_revenue,
+    CAST(event_revenue AS FLOAT64) event_revenue
+  FROM
+    `${dataform.projectConfig.vars.rockadsProject}.appsflyer_airbyte.ai_cleaner_in_app_events` )
+SELECT
+  *
+FROM (
+  SELECT
+    campaign,
+    af_ad,
+    af_ad_id,
+    country_code,
+    media_source,
+    event_date,
+    SUM(
+    IF
+      (event_value_af_revenue=0,0,event_value_af_price)) AS event_value_af_price,
+    SUM(event_value_af_revenue) AS event_value_af_revenue,
+    SUM(CAST(event_revenue AS FLOAT64)) event_revenue
+  FROM
+    main_raw_data
+  GROUP BY
+    ALL )

@@ -1,0 +1,136 @@
+config {
+  type: "table",
+    bigquery: {
+    partitionBy: "report_date"
+  },
+  database: `${dataform.projectConfig.vars.rockadsProject}`,
+  name: "id6738990592_combined_metrics_unique_dm",
+  schema: "id6738990592_appsflyer_ds",
+  dependencies: ['id6738990592_event_counts_unique'],
+  tags: ['appsflyer_id6738990592_main']
+}
+
+WITH
+  appsflyer_count AS (
+  SELECT
+  DISTINCT
+    event_date AS report_date,
+    'id6738990592' AS app_id,
+    country_code AS geo,
+    campaign,
+    af_adset as adset,
+    af_ad AS ad,
+    media_source,
+    appsflyer_os_id,
+    SUM(event_count_rc_trial_converted_event) event_count_rc_trial_converted_event,
+    SUM(event_count_rc_renewal_event) event_count_rc_renewal_event,
+    SUM(event_count_rc_cancellation_event) event_count_rc_cancellation_event,
+    SUM(event_count_rc_trial_started_event) event_count_rc_trial_started_event,
+    SUM(event_count_rc_trial_cancelled_event) event_count_rc_trial_cancelled_event,
+    SUM(event_count_rc_initial_purchase_event) event_count_rc_initial_purchase_event,
+    SUM(event_count_rc_non_subscription_purchase_event) event_count_rc_non_subscription_purchase_event,
+    SUM(event_count_rc_expiration_event) event_count_rc_expiration_event,
+    SUM(event_count_rc_billing_issue_event) event_count_rc_billing_issue_event,
+    SUM(event_count_rc_product_change_event) event_count_rc_product_change_event,
+
+    SUM(unique_event_count_rc_trial_converted_event) unique_event_count_rc_trial_converted_event,
+    SUM(unique_event_count_rc_renewal_event) unique_event_count_rc_renewal_event,
+    SUM(unique_event_count_rc_cancellation_event) unique_event_count_rc_cancellation_event,
+    SUM(unique_event_count_rc_trial_started_event) unique_event_count_rc_trial_started_event,
+    SUM(unique_event_count_rc_trial_cancelled_event) unique_event_count_rc_trial_cancelled_event,
+    SUM(unique_event_count_rc_initial_purchase_event) unique_event_count_rc_initial_purchase_event,
+    SUM(unique_event_count_rc_non_subscription_purchase_event) unique_event_count_rc_non_subscription_purchase_event,
+    SUM(unique_event_count_rc_expiration_event) unique_event_count_rc_expiration_event,
+    SUM(unique_event_count_rc_billing_issue_event) unique_event_count_rc_billing_issue_event,
+    SUM(unique_event_count_rc_product_change_event) unique_event_count_rc_product_change_event,
+
+    SUM(revenue_rc_trial_converted_event) revenue_rc_trial_converted_event,
+    SUM(revenue_rc_renewal_event) revenue_rc_renewal_event,
+    SUM(revenue_rc_cancellation_event) revenue_rc_cancellation_event,
+    SUM(revenue_rc_trial_started_event) revenue_rc_trial_started_event,
+    SUM(revenue_rc_trial_cancelled_event) revenue_rc_trial_cancelled_event,
+    SUM(revenue_rc_initial_purchase_event) revenue_rc_initial_purchase_event,
+    SUM(revenue_rc_non_subscription_purchase_event) revenue_rc_non_subscription_purchase_event,
+    SUM(revenue_rc_expiration_event) revenue_rc_expiration_event,
+    SUM(revenue_rc_billing_issue_event) revenue_rc_billing_issue_event,
+    SUM(revenue_rc_product_change_event) revenue_rc_product_change_event,
+
+  FROM
+    `${dataform.projectConfig.vars.rockadsProject}.id6738990592_appsflyer_ds.id6738990592_event_counts_unique`
+  GROUP BY ALL
+),
+  revenues AS (
+  SELECT
+    DISTINCT
+    event_date AS report_date,
+    'id6738990592' AS app_id,
+    country_code AS geo,
+    campaign,
+    af_adset as adset,
+    af_ad AS ad,
+    media_source,
+    appsflyer_os_id,
+    SUM(event_revenue) event_revenue
+  FROM
+    `${dataform.projectConfig.vars.rockadsProject}.id6738990592_appsflyer_ds.id6738990592_revenues`
+  GROUP BY ALL
+)
+
+SELECT
+  IFNULL(af_counts.report_date, rvns.report_date) AS report_date,
+  IFNULL(af_counts.app_id, rvns.app_id) AS app_id,
+  IFNULL(af_counts.geo, rvns.geo) AS geo,
+  IFNULL(af_counts.campaign, rvns.campaign) AS campaign,
+  IFNULL(af_counts.adset, rvns.adset) AS adset,
+  IFNULL(af_counts.ad, rvns.ad) AS ad,
+  IFNULL(af_counts.media_source, rvns.media_source) AS media_source,
+  IFNULL(af_counts.appsflyer_os_id, rvns.appsflyer_os_id) AS appsflyer_os_id,
+  IFNULL(af_counts.event_count_rc_trial_converted_event, 0) AS rc_trial_converted_event,
+  IFNULL(af_counts.event_count_rc_renewal_event, 0) AS rc_renewal_event,
+  IFNULL(af_counts.event_count_rc_cancellation_event, 0) AS rc_cancellation_event,
+  IFNULL(af_counts.event_count_rc_trial_started_event, 0) AS rc_trial_started_event,
+  IFNULL(af_counts.event_count_rc_trial_cancelled_event, 0) AS rc_trial_cancelled_event,
+  IFNULL(af_counts.event_count_rc_initial_purchase_event, 0) AS rc_initial_purchase_event,
+  IFNULL(af_counts.event_count_rc_non_subscription_purchase_event, 0) AS rc_non_subscription_purchase_event,
+  IFNULL(af_counts.event_count_rc_expiration_event, 0) AS rc_expiration_event,
+  IFNULL(af_counts.event_count_rc_billing_issue_event, 0) AS rc_billing_issue_event,
+  IFNULL(af_counts.event_count_rc_product_change_event, 0) AS rc_product_change_event,
+  
+  -- Unique event counts
+  IFNULL(af_counts.unique_event_count_rc_trial_converted_event, 0) AS unique_rc_trial_converted_event,
+  IFNULL(af_counts.unique_event_count_rc_renewal_event, 0) AS unique_rc_renewal_event,
+  IFNULL(af_counts.unique_event_count_rc_cancellation_event, 0) AS unique_rc_cancellation_event,
+  IFNULL(af_counts.unique_event_count_rc_trial_started_event, 0) AS unique_rc_trial_started_event,
+  IFNULL(af_counts.unique_event_count_rc_trial_cancelled_event, 0) AS unique_rc_trial_cancelled_event,
+  IFNULL(af_counts.unique_event_count_rc_initial_purchase_event, 0) AS unique_rc_initial_purchase_event,
+  IFNULL(af_counts.unique_event_count_rc_non_subscription_purchase_event, 0) AS unique_rc_non_subscription_purchase_event,
+  IFNULL(af_counts.unique_event_count_rc_expiration_event, 0) AS unique_rc_expiration_event,
+  IFNULL(af_counts.unique_event_count_rc_billing_issue_event, 0) AS unique_rc_billing_issue_event,
+  IFNULL(af_counts.unique_event_count_rc_product_change_event, 0) AS unique_rc_product_change_event,
+
+  -- Revenues
+  IFNULL(af_counts.revenue_rc_trial_converted_event, 0) AS revenue_rc_trial_converted_event,
+  IFNULL(af_counts.revenue_rc_renewal_event, 0) AS revenue_rc_renewal_event,
+  IFNULL(af_counts.revenue_rc_cancellation_event, 0) AS revenue_rc_cancellation_event,
+  IFNULL(af_counts.revenue_rc_trial_started_event, 0) AS revenue_rc_trial_started_event,
+  IFNULL(af_counts.revenue_rc_trial_cancelled_event, 0) AS revenue_rc_trial_cancelled_event,
+  IFNULL(af_counts.revenue_rc_initial_purchase_event, 0) AS revenue_rc_initial_purchase_event,
+  IFNULL(af_counts.revenue_rc_non_subscription_purchase_event, 0) AS revenue_rc_non_subscription_purchase_event,
+  IFNULL(af_counts.revenue_rc_expiration_event, 0) AS revenue_rc_expiration_event,
+  IFNULL(af_counts.revenue_rc_billing_issue_event, 0) AS revenue_rc_billing_issue_event,
+  IFNULL(af_counts.revenue_rc_product_change_event, 0) AS revenue_rc_product_change_event,
+
+  IFNULL(rvns.event_revenue, 0) AS event_revenue,
+FROM
+  appsflyer_count af_counts
+FULL OUTER JOIN
+  revenues rvns
+ON
+  af_counts.report_date=rvns.report_date
+  AND af_counts.app_id=rvns.app_id
+  AND af_counts.geo=rvns.geo
+  AND af_counts.ad=rvns.ad
+  AND af_counts.media_source=rvns.media_source
+  AND af_counts.campaign=rvns.campaign
+  AND af_counts.adset=rvns.adset
+  AND af_counts.appsflyer_os_id=rvns.appsflyer_os_id

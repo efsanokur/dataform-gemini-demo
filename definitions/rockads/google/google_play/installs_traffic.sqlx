@@ -1,0 +1,31 @@
+config {
+  type: "table",
+    bigquery: {
+    partitionBy: "report_date"
+  },
+  database: `${dataform.projectConfig.vars.rockadsProject}`,
+  name: "googlePlay_installs_traffic_report",
+  schema: "thirdparty_datamarts",
+  tags: ['google_play'],
+  dependencies: ["google_play_app_account_names"]
+}
+
+SELECT
+  tssp.date AS report_date,
+  an.account_name,
+  an.app_name,
+  traffic_source,
+  SUM(store_listing_acquisitions) AS total_listing_acquisitions,
+  SUM(store_listing_visitors) AS total_listing_visitors,
+  SUM(store_listing_acquisitions) / SUM(store_listing_visitors) AS total_listing_cr
+FROM
+  `${dataform.projectConfig.vars.rockadsProject}.app_stats.googlePlay_traffic_source_store_performance_*` tssp
+LEFT JOIN
+  ${dataform.projectConfig.vars.rockadsProject}.mapping_tables.google_play_app_account_names an
+ON
+  tssp.package_name = an.product_id
+GROUP BY
+  1,
+  2,
+  3,
+  4

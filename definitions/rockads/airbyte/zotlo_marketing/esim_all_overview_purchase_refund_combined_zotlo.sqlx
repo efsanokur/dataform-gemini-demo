@@ -1,0 +1,49 @@
+config {
+  type: "table",
+  bigquery: {
+    partitionBy: "report_date",
+    clusterBy: ["country_code","app_name"]
+   },
+  database: `${dataform.projectConfig.vars.rockadsProject}`,
+  schema: "zotlo_marketing_ds",
+  name: "esim_all_overview_purchase_refund_combined_zotlo",
+  tags: ["ads_purchase_refund_combined_zotlo"],
+  description: "Overview Combined daily purchase and refund data for Zotlo, with refunds as negative amounts."
+}
+
+
+SELECT
+DATE(original_event_date) AS report_date,
+app_name,
+UPPER(country) AS country_code,
+IFNULL(utm_content, '') AS ad_name,
+IFNULL(utm_medium, '') AS ad_group_name,
+IFNULL(utm_source, '') AS media_source,
+IFNULL(utm_campaign, '') AS campaign_name,
+IFNULL(platform, '') AS platform,
+IFNULL(source_os, '') AS source_os,
+IFNULL(transaction_type, 'zotlo_unkown_event') as event_name,
+SUM(total_amount_usd) AS amount,
+SUM(event_count) AS event_count
+from `zotlo-dataland.zotlo_datamarts.esim_purchase_count_daily`
+WHERE status="success"
+group by ALL
+
+UNION ALL
+
+SELECT
+DATE(original_event_date) AS report_date,
+app_name,
+UPPER(country) AS country_code,
+IFNULL(utm_content, '') AS ad_name,
+IFNULL(utm_medium, '') AS ad_group_name,
+IFNULL(utm_source, '') AS media_source,
+IFNULL(utm_campaign, '') AS campaign_name,
+IFNULL(platform, '') AS platform,
+IFNULL(source_os, '') AS source_os,
+IFNULL(transaction_type, 'zotlo_unkown_event') as event_name,
+-SUM(total_amount_usd) AS amount,
+SUM(total_transaction_count) AS event_count
+from `zotlo-dataland.zotlo_datamarts.esim_refund_count_daily`
+WHERE status="success"
+group by ALL

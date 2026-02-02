@@ -1,0 +1,180 @@
+config {
+  type: "table",
+    bigquery: {
+    partitionBy: "install_date"
+  },
+  database: `${dataform.projectConfig.vars.rockadsProject}`,
+  name: "id6738990592_compared_ltv",
+  schema: "id6738990592_appsflyer_ds",
+  dependencies: ['id6738990592_dt_ltv'],
+  tags: ['appsflyer_id6738990592_pltv_main']
+}
+
+WITH churney_prediction as (
+
+SELECT
+  DATE(install_date) AS install_date,
+  # campaign_name AS campaign,
+  # media_source,
+  # platform as operating_system,
+  count(distinct user_id) as unique_churney_user_count,
+  SUM(cumulative_pltv) AS churney_ltv
+FROM
+  (WITH
+  churney_users AS (
+  SELECT
+    *
+  FROM
+    `churney-teknasyon-public.analytics.all_platforms_pltv`
+  QUALIFY
+    ROW_NUMBER() OVER (PARTITION BY user_id ORDER BY prediction_timestamp ASC ) <= 2 ),
+appsflyer_users AS (
+  WITH
+    main_raw_data AS (
+    SELECT
+      campaign,
+      af_adset,
+      af_ad,
+      af_ad_id,
+      event_name,
+    IF
+      (media_source = 'restricted', 'Facebook Ads', media_source) AS media_source,
+      'id6738990592' AS appsflyer_os_id,
+      country_code,
+      customer_user_id,
+      appsflyer_id,
+      event_revenue,
+      DATE(install_time) AS install_date,
+    FROM
+      `rockads-thirdparty.appsflyer.id6738990592_in_app_events`
+    WHERE
+      DATE(event_time) < '2025-06-01'
+    UNION ALL
+    SELECT
+    IF
+      (campaign='',NULL, campaign) AS campaign,
+    IF
+      (af_adset='',NULL, af_adset) AS af_adset,
+    IF
+      (af_ad='',NULL, af_ad) AS af_ad,
+    IF
+      (af_ad_id='',NULL, af_ad_id) AS af_ad_id,
+      event_name,
+    IF
+      (media_source = 'restricted', 'Facebook Ads',
+      IF
+        (media_source='',NULL, media_source)) AS media_source,
+      'id6738990592' AS appsflyer_os_id,
+      country_code,
+      customer_user_id,
+      appsflyer_id,
+      SAFE_CAST(NULLIF(event_revenue, '') AS STRING) AS event_revenue,
+      DATE(install_time) AS install_date,
+    FROM
+      `rockads-thirdparty.appsflyer_airflow.id6738990592_in_app_events`
+    WHERE
+      DATE(event_time) >= '2025-06-01'
+    UNION ALL
+    SELECT
+      campaign,
+      af_adset,
+      af_ad,
+      af_ad_id,
+      event_name,
+    IF
+      (media_source = 'restricted', 'Facebook Ads', media_source) AS media_source,
+      'com_videoai_effects' AS appsflyer_os_id,
+      country_code,
+      customer_user_id,
+      appsflyer_id,
+      event_revenue,
+      DATE(install_time) AS install_date,
+    FROM
+      `rockads-thirdparty.appsflyer.com_videoai_effects_in_app_events`
+    WHERE
+      DATE(event_time) < '2025-06-12'
+    UNION ALL
+    SELECT
+    IF
+      (campaign='',NULL, campaign) AS campaign,
+    IF
+      (af_adset='',NULL, af_adset) AS af_adset,
+    IF
+      (af_ad='',NULL, af_ad) AS af_ad,
+    IF
+      (af_ad_id='',NULL, af_ad_id) AS af_ad_id,
+      event_name,
+    IF
+      (media_source = 'restricted', 'Facebook Ads',
+      IF
+        (media_source='',NULL, media_source)) AS media_source,
+      'com_videoai_effects' AS appsflyer_os_id,
+      country_code,
+      customer_user_id,
+      appsflyer_id,
+      SAFE_CAST(NULLIF(event_revenue, '') AS STRING) AS event_revenue,
+      DATE(install_time) AS install_date,
+    FROM
+      `rockads-thirdparty.appsflyer_airflow.com_videoai_effects_in_app_events`
+    WHERE
+      DATE(event_time) >= '2025-06-12' )
+  SELECT
+    DISTINCT appsflyer_id,
+    customer_user_id,
+    install_date
+  FROM
+    main_raw_data ),
+duplicated_data as (
+SELECT
+  cu.*,
+  au.install_date
+FROM
+  churney_users cu
+LEFT JOIN
+  appsflyer_users au
+ON
+  cu.user_id=au.customer_user_id
+)
+SELECT * , DATE_DIFF(DATE(prediction_timestamp), DATE(install_date), day) as prediction_time_diff
+FROM duplicated_data
+WHERE DATE_DIFF(DATE(prediction_timestamp), DATE(install_date), day) = 1)
+WHERE
+  install_date IS NOT NULL
+GROUP BY
+  ALL
+ORDER BY
+  1
+
+),
+akin_pred as (
+SELECT * FROM (
+SELECT
+  install_date,
+  # operating_system,
+  # media_source,
+  # campaign,
+  SUM(predicted_ltv) AS akin_ltv,
+  _TABLE_SUFFIX AS table_suffix
+FROM
+  `rockads-thirdparty.appsflyer_ltv.predictions_ltv_30_*`
+GROUP BY
+  ALL
+)
+QUALIFY ROW_NUMBER() OVER(PARTITION by install_date  order by table_suffix desc) = 1
+
+),
+real_ltv AS (
+  SELECT install_date,
+  # operating_system,
+  # media_source,
+  # campaign,
+ sum(ltv_0) as sum_ltv_0, sum(revenue_grand_total) as ltv, sum(user_count_0) as akin_user_count
+FROM `rockads-thirdparty.appsflyer_ltv.videa_ltv_prediction_daily_cohorts`
+group by ALL
+order by install_date desc )
+
+SELECT cp.*, ap.akin_ltv, rltv.akin_user_count, rltv.sum_ltv_0, rltv.ltv FROM churney_prediction cp
+LEFT JOIN akin_pred ap on cp.install_date=ap.install_date --AND cp.operating_system=ap.operating_system AND cp.media_source=ap.media_source
+      --AND cp.campaign=ap.campaign
+LEFT JOIN real_ltv rltv on rltv.install_date=cp.install_date --AND cp.operating_system=rltv.operating_system AND cp.media_source=rltv.media_source
+      --AND cp.campaign=rltv.campaign

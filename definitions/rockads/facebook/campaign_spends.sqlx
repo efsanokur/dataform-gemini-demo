@@ -1,0 +1,91 @@
+config {
+    type: "operations",
+    database: `${dataform.projectConfig.vars.rockadsProject}`,
+    name: "facebook_campaign_spends_report",
+    schema: "thirdparty_datamarts",
+    tags: ['facebook'],
+    dependencies: ["facebook_ad_business_names"]
+}
+  CREATE TEMP FUNCTION
+    replaceTurkishChars(input STRING)
+    RETURNS STRING
+    LANGUAGE js AS """
+    var trMap = {
+      'ç':'c', 'ğ':'g', 'ı':'i', 'ö':'o', 'ş':'s', 'ü':'u',
+      'Ç':'C', 'Ğ':'G', 'İ':'I', 'Ö':'O', 'Ş':'S', 'Ü':'U'
+    };
+    var output = Array.from(input).map(function(c) {
+      return trMap[c] || c;
+    }).join('');
+    return output;
+  """;
+
+CREATE OR REPLACE TABLE `${dataform.projectConfig.vars.rockadsProject}.thirdparty_datamarts.facebook_campaign_spends_report`
+PARTITION BY created_time
+AS
+SELECT
+  t0.created_time,
+  t1.business_name,
+  t0.account_id,
+  IFNULL(t1.account_name,t0.account_name) account_name,
+  replaceTurkishChars(IFNULL(t1.account_name,t0.account_name)) AS account,
+  CASE
+    WHEN LOWER(campaign_name) LIKE '%android%' OR campaign_name LIKE '%AND%' THEN 'Android'
+    WHEN LOWER(campaign_name) LIKE '%ios%'
+  OR campaign_name LIKE '%IOS%' THEN 'iOS'
+    WHEN LOWER(campaign_name) LIKE '%web%' THEN 'Web'
+    WHEN LOWER(t0.account_name) LIKE '%android%'
+  OR t0.account_name LIKE '%AND%' THEN 'Android'
+    WHEN LOWER(t0.account_name) LIKE '%ios%' OR t0.account_name LIKE '%IOS%' THEN 'iOS'
+    ELSE "Web"
+END
+  AS platform,
+  t2.name AS country_name,
+  account_currency,
+  SUM(CAST(clicks AS float64)) AS total_click,
+  SUM(CAST(unique_clicks AS float64)) AS total_unique_click,
+  AVG(CAST(frequency AS float64)) AS avg_frequency,
+  SUM(CAST(impressions AS float64)) AS total_impression,
+  SUM(CAST(spend AS float64)) AS total_spend,
+  SUM(CAST(spend AS float64) / (CASE
+        WHEN account_currency = 'USD' THEN 1
+        ELSE currency_rate
+    END
+      )) AS total_spend_usd,
+  SUM(CAST(spend AS float64)) / NULLIF(SUM(CAST(impressions AS float64)),0) * 1000 AS cpm,
+  SUM(CAST(clicks AS float64)) / NULLIF(SUM(CAST(impressions AS float64)),0) * 100 AS ctr,
+  SUM(CAST(cpp AS float64)) / COUNT(cpp) AS avg_cpp,
+  SUM(CAST(spend AS float64)) / NULLIF(SUM(CAST(unique_clicks AS float64)),0) AS cost_per_unique_click,
+  SUM(CAST(reach AS float64)) AS total_reach,
+  SUM(CAST(onsite_conversion_post_save AS float64)) onsite_conversion_post_save,
+  SUM(CAST(link_click AS float64)) total_link_click,
+  SUM(CAST(post AS float64)) total_post,
+  SUM(CAST(post_reaction AS float64)) total_post_reaction,
+  SUM(CAST(comment AS float64)) total_comment,
+  SUM(CAST(video_view AS float64)) total_video_view,
+  SUM(CAST(post_engagement AS float64)) total_post_engagement,
+  SUM(CAST(page_engagement AS float64)) total_page_engagement
+FROM
+  `${dataform.projectConfig.vars.rockadsProject}.facebook.facebook_campaign_spends_*` t0
+LEFT JOIN
+  `${dataform.projectConfig.vars.rockadsProject}.mapping_tables.facebook_ad_business_names` t1
+ON
+  t0.account_id = t1.account_id
+LEFT JOIN
+  `${dataform.projectConfig.vars.rockadsProject}.mapping_tables.countries` t2
+ON
+  t0.country = t2.short_code
+LEFT JOIN
+  `${dataform.projectConfig.vars.rockadsProject}.mapping_tables.currency_rates_*` t3
+ON
+  t3.relative_currency = t0.account_currency
+  AND t0.created_time = t3.date
+GROUP BY
+  t0.created_time,
+  t1.business_name,
+  t0.account_id,
+  account_name,
+  account,
+  platform,
+  t2.name,
+  account_currency

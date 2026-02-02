@@ -1,0 +1,305 @@
+config {
+  type: "table",
+  bigquery: {
+    partitionBy: "DATE(event_time)",
+    clusterBy: ["appsflyer_os_id", "country_code"]
+  },
+  database: `${dataform.projectConfig.vars.rockadsProject}`,
+  name: "mellon_airflow_raw_events",
+  schema: "datacan_thirdparty_api_datamarts",
+  tags: ['datacan_mellon_daily']
+}
+
+WITH
+  # Robo AI
+  robo_main_raw_data AS (
+    # Robo AI - Organic - IOS
+  SELECT
+    install_time,
+    event_time,
+    event_name,
+    country_code,
+    'ORGANIC' AS campaign,
+    'ORGANIC' AS af_adset,
+    'ORGANIC' AS af_ad,
+    'ORGANIC' AS media_source,
+    'id1662905686' AS appsflyer_os_id,
+    "Robo" as app_name,
+    customer_user_id,
+    appsflyer_id,
+    event_revenue,
+    event_value
+  FROM
+    `rockads-thirdparty.appsflyer.id1662905686_organic_in_app_events`
+    # Robo AI - Organic - Android
+  UNION ALL
+  SELECT
+    install_time,
+    event_time,
+    event_name,
+    country_code,
+    'ORGANIC' AS campaign,
+    'ORGANIC' AS af_adset,
+    'ORGANIC' AS af_ad,
+    'ORGANIC' AS media_source,
+    'app.roboco.android' AS appsflyer_os_id,
+    "Robo" as app_name,
+    customer_user_id,
+    appsflyer_id,
+    event_revenue,
+    event_value
+  FROM
+    `rockads-thirdparty.appsflyer.app_roboco_android_organic_in_app_events`
+    # Robo AI - Adv - IOS
+  UNION ALL
+  SELECT
+    install_time,
+    event_time,
+    event_name,
+    country_code,
+    campaign,
+    af_adset,
+    af_ad,
+    media_source,
+    'id1662905686' AS appsflyer_os_id,
+    "Robo" as app_name,
+    customer_user_id,
+    appsflyer_id,
+    event_revenue,
+    event_value
+  FROM
+    `rockads-thirdparty.appsflyer.id1662905686_in_app_events`
+    # Robo AI - Adv - Android
+  UNION ALL
+  SELECT
+    install_time,
+    event_time,
+    event_name,
+    country_code,
+    campaign,
+    af_adset,
+    af_ad,
+    media_source,
+    'app.roboco.android' AS appsflyer_os_id,
+    "Robo" as app_name,
+    customer_user_id,
+    appsflyer_id,
+    event_revenue,
+    event_value
+  FROM
+    `rockads-thirdparty.appsflyer.app_roboco_android_in_app_events` ),
+  # Videa
+  videa_main_raw_data AS (
+    # Videa - Organic - IOS
+  SELECT
+    install_time,
+    event_time,
+    event_name,
+    country_code,
+    'ORGANIC' AS campaign,
+    'ORGANIC' AS af_adset,
+    'ORGANIC' AS af_ad,
+    'ORGANIC' AS media_source,
+    'id6738990592' AS appsflyer_os_id,
+    "Videa" as app_name,
+    customer_user_id,
+    appsflyer_id,
+    event_revenue,
+    event_value
+  FROM
+    `rockads-thirdparty.appsflyer.id6738990592_organic_in_app_events`
+    # Videa - Organic - Android
+  UNION ALL
+  SELECT
+    install_time,
+    event_time,
+    event_name,
+    country_code,
+    'ORGANIC' AS campaign,
+    'ORGANIC' AS af_adset,
+    'ORGANIC' AS af_ad,
+    'ORGANIC' AS media_source,
+    'com.videoai.effects' AS appsflyer_os_id,
+    "Videa" as app_name,
+    customer_user_id,
+    appsflyer_id,
+    event_revenue,
+    event_value
+  FROM
+    `rockads-thirdparty.appsflyer.com_videoai_effects_organic_in_app_events`
+  # Videa - Adv - IOS
+  UNION ALL
+  SELECT
+    install_time,
+    event_time,
+    event_name,
+    country_code,
+    campaign,
+    af_adset,
+    af_ad,
+    media_source,
+    'id6738990592' AS appsflyer_os_id,
+    "Videa" as app_name,
+    customer_user_id,
+    appsflyer_id,
+    event_revenue,
+    event_value
+  FROM
+    `rockads-thirdparty.appsflyer.id6738990592_in_app_events`
+  WHERE
+    DATE(event_time) < '2025-06-01'
+  UNION ALL
+  SELECT
+    install_time,
+    event_time,
+    event_name,
+    country_code,
+  IF
+    (campaign='',NULL, campaign) AS campaign,
+  IF
+    (af_adset='',NULL, af_adset) AS af_adset,
+  IF
+    (af_ad='',NULL, af_ad) AS af_ad,
+  IF
+    (media_source='',NULL, media_source) AS media_source,
+    'id6738990592' AS appsflyer_os_id,
+    "Videa" as app_name,
+    customer_user_id,
+    appsflyer_id,
+    SAFE_CAST(NULLIF(event_revenue, '') AS STRING) AS event_revenue,
+    event_value
+  FROM
+    `rockads-thirdparty.appsflyer_airflow.id6738990592_in_app_events`
+  WHERE
+    DATE(event_time) >= '2025-06-01'
+  # Videa - Adv - Android
+  UNION ALL
+  SELECT
+    install_time,
+    event_time,
+    event_name,
+    country_code,
+    campaign,
+    af_adset,
+    af_ad,
+    media_source,
+    'com.videoai.effects' AS appsflyer_os_id,
+    "Videa" as app_name,
+    customer_user_id,
+    appsflyer_id,
+    event_revenue,
+    event_value
+  FROM
+    `rockads-thirdparty.appsflyer.com_videoai_effects_in_app_events`
+  WHERE
+    DATE(event_time) < '2025-06-12'
+  UNION ALL
+  SELECT
+    install_time,
+    event_time,
+    event_name,
+    country_code,
+  IF
+    (campaign='',NULL, campaign) AS campaign,
+  IF
+    (af_adset='',NULL, af_adset) AS af_adset,
+  IF
+    (af_ad='',NULL, af_ad) AS af_ad,
+  IF
+    (media_source='',NULL, media_source) AS media_source,
+  'com.videoai.effects' AS appsflyer_os_id,
+  "Videa" as app_name,
+  customer_user_id,
+  appsflyer_id,
+  SAFE_CAST(NULLIF(event_revenue, '') AS STRING) AS event_revenue,
+  event_value
+  FROM
+    `rockads-thirdparty.appsflyer_airflow.com_videoai_effects_in_app_events`
+  WHERE
+    DATE(event_time) >= '2025-06-12' ),
+  # Cleaner
+  cleaner_main_raw_data AS (
+
+  # Cleaner - Organic - IOS
+  SELECT
+    install_time,
+    event_time,
+    event_name,
+    country_code,
+    'ORGANIC' AS campaign,
+    'ORGANIC' AS af_adset,
+    'ORGANIC' AS af_ad,
+    'ORGANIC' AS media_source,
+    'id6738388891' AS appsflyer_os_id,
+    "Cleaner" as app_name,
+    customer_user_id,
+    appsflyer_id,
+    event_revenue,
+    event_value
+  FROM
+    `rockads-thirdparty.appsflyer_airbyte.ai_cleaner_organic_in_app_events`
+
+  # Cleaner - Adv - IOS
+  UNION ALL
+  SELECT
+    install_time,
+    event_time,
+    event_name,
+    country_code,
+    campaign,
+    af_adset,
+    af_ad,
+    media_source,
+    'id6738388891' AS appsflyer_os_id,
+    "Cleaner" as app_name,
+    customer_user_id,
+    appsflyer_id,
+    event_revenue,
+    event_value
+  FROM
+    `rockads-thirdparty.appsflyer_airbyte.ai_cleaner_in_app_events`
+  WHERE
+    DATE(event_time) < '2025-10-13'
+  UNION ALL
+  SELECT
+    install_time,
+    event_time,
+    event_name,
+    country_code,
+  IF
+    (campaign='',NULL, campaign) AS campaign,
+  IF
+    (af_adset='',NULL, af_adset) AS af_adset,
+  IF
+    (af_ad='',NULL, af_ad) AS af_ad,
+  IF
+    (media_source='',NULL, media_source) AS media_source,
+    'id6738388891' AS appsflyer_os_id,
+    "Cleaner" as app_name,
+    customer_user_id,
+    appsflyer_id,
+    SAFE_CAST(NULLIF(event_revenue, '') AS STRING) AS event_revenue,
+    event_value
+  FROM
+    `rockads-thirdparty.appsflyer_airflow.id6738388891_in_app_events`
+  WHERE
+    DATE(event_time) >= '2025-10-13'
+
+)
+
+SELECT
+  *
+FROM
+  robo_main_raw_data
+
+UNION ALL
+SELECT
+  *
+FROM
+  videa_main_raw_data
+
+UNION ALL
+SELECT
+  *
+FROM
+  cleaner_main_raw_data

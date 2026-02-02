@@ -1,0 +1,146 @@
+config {
+  type: "table",
+  database: `${dataform.projectConfig.vars.rockadsProject}`,
+  name: "teli_single_cost_dm",
+  schema: "teli_adjust_ds",
+  tags: ['adjust_teli_main']
+}
+# Adjust
+WITH
+  spends AS (
+    SELECT
+      DATE(time_utc) AS report_date,
+      IFNULL(
+        REGEXP_REPLACE(
+          media_source,
+          r'\s*\([^)]*\)',
+          ''),
+        'None') AS media_source,
+      platform AS adjust_os_id,
+      'teli' AS app_id,
+      IFNULL(
+        IFNULL(
+          REGEXP_REPLACE(
+            campaign,
+            r'\s*\([^)]*\)',
+            ''),
+          'None'),
+        'None') AS campaign,
+      IFNULL(
+        REGEXP_REPLACE(
+          adgroup,
+          r'\s*\([^)]*\)',
+          ''),
+        'None') AS adset,
+      IFNULL(
+        REGEXP_REPLACE(
+          ad,
+          r'\s*\([^)]*\)',
+          ''),
+        'None') AS ad,
+      IFNULL(UPPER(country), 'None') AS geo,
+      'USD' AS currency,
+      SUM(spend) AS total_cost,
+      0 AS total_installs,
+      0 AS total_clicks,
+      0 AS total_impressions,
+      NULL AS total_re_attributions,
+      NULL AS total_re_engagements,
+      NULL AS total_video_completions,
+      NULL AS total_video_25p_views,
+      NULL AS total_video_50p_views,
+      NULL AS total_video_75p_views
+    FROM `rockads-thirdparty.teli_adjust_ds.teli_adjust_spend_2*`
+    WHERE
+      REGEXP_REPLACE(
+        media_source,
+        r'\s*\([^)]*\)',
+        '')
+      NOT IN ('Facebook', 'Tiktok Ads', 'Google Ads', 'Google Ads ACI')
+    GROUP BY ALL
+  ),
+  attribution_metrics AS (
+    SELECT
+      DATE(time_utc) AS report_date,
+      IFNULL(
+        REGEXP_REPLACE(
+          media_source,
+          r'\s*\([^)]*\)',
+          ''),
+        'None') AS media_source,
+      platform AS adjust_os_id,
+      'teli' AS app_id,
+      IFNULL(
+        IFNULL(
+          REGEXP_REPLACE(
+            campaign,
+            r'\s*\([^)]*\)',
+            ''),
+          'None'),
+        'None') AS campaign,
+      IFNULL(
+        REGEXP_REPLACE(
+          adgroup,
+          r'\s*\([^)]*\)',
+          ''),
+        'None') AS adset,
+      IFNULL(
+        REGEXP_REPLACE(
+          ad,
+          r'\s*\([^)]*\)',
+          ''),
+        'None') AS ad,
+      IFNULL(UPPER(country), 'None') AS geo,
+      'USD' AS currency,
+      0 AS total_cost,
+      SUM(installs) AS total_installs,
+      SUM(clicks) AS total_clicks,
+      SUM(impressions) AS total_impressions,
+      NULL AS total_re_attributions,
+      NULL AS total_re_engagements,
+      NULL AS total_video_completions,
+      NULL AS total_video_25p_views,
+      NULL AS total_video_50p_views,
+      NULL AS total_video_75p_views
+    FROM `rockads-thirdparty.teli_adjust_ds.teli_adjust_attribution_all`
+    WHERE
+      REGEXP_REPLACE(
+        media_source,
+        r'\s*\([^)]*\)',
+        '')
+      NOT IN ('Facebook', 'Tiktok Ads', 'Google Ads', 'Google Ads ACI')
+    GROUP BY ALL
+  ),
+  union_table as (
+SELECT
+*
+FROM spends
+UNION ALL
+SELECT
+*
+FROM attribution_metrics
+  )
+
+  select
+  report_date,
+  IF(media_source = 'Organic', 'ORGANIC', media_source) as media_source,
+  adjust_os_id,
+  app_id,
+  IF(media_source = 'Organic', 'ORGANIC', campaign) as campaign,
+  IF(media_source = 'Organic', 'ORGANIC', adset) as adset,
+  IF(media_source = 'Organic', 'ORGANIC', ad) as ad,
+  geo,
+  currency,
+  SUM(total_cost)AS total_cost,
+  SUM(total_installs)AS   total_installs,
+  SUM(total_clicks)AS   total_clicks,
+  SUM(total_impressions)AS   total_impressions,
+  SUM(total_re_attributions)AS   total_re_attributions,
+  SUM(total_re_engagements)AS   total_re_engagements,
+  SUM(total_video_completions)AS   total_video_completions,
+  SUM(total_video_25p_views)AS   total_video_25p_views,
+  SUM(total_video_50p_views)AS   total_video_50p_views,
+  SUM(total_video_75p_views)AS   total_video_75p_views
+  from
+  union_table
+  GROUP BY ALL

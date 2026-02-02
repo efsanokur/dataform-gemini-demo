@@ -1,0 +1,48 @@
+config {
+  type: "table",
+  bigquery: {
+    partitionBy: "event_date",
+    clusterBy: ["country_code"]
+  },
+  database: `${dataform.projectConfig.vars.rockadsProject}`,
+  name: "ads_insights_by_country",
+  schema: "appsflyer_airbyte_datamarts",
+  tags: ['appsflyer_airbyte_all']
+}
+
+WITH main_raw_data AS (
+SELECT  campaign, af_ad, event_name,media_source,country_code,
+DATE(event_time) as event_date,
+CAST(JSON_EXTRACT_SCALAR(event_value, '$.af_price')AS FLOAT64) AS event_value_af_price,
+CAST(JSON_EXTRACT_SCALAR(event_value, '$.af_revenue')AS FLOAT64) AS event_value_af_revenue,
+CAST(event_revenue AS FLOAT64) event_revenue
+
+ FROM `${dataform.projectConfig.vars.rockadsProject}.appsflyer_airbyte.ai_cleaner_in_app_events`
+
+),
+installs_table as (
+SELECT campaign, af_ad, event_name,media_source,country_code,
+DATE(event_time) as event_date
+FROM `${dataform.projectConfig.vars.rockadsProject}.appsflyer_airbyte.ai_cleaner_installs`
+)
+
+
+SELECT mn.* , ins.total_installs, ROW_NUMBER() OVER (PARTITION BY mn.campaign, mn.af_ad, mn.country_code, mn.event_date ORDER BY mn.event_date desc) AS install_row_num
+FROM (
+SELECT campaign, af_ad, country_code,
+media_source, event_name,
+event_date,
+SUM(IF(event_value_af_revenue=0,0,event_value_af_price)) AS event_value_af_price,
+SUM(event_value_af_revenue) AS event_value_af_revenue,
+count(event_name) AS event_count, sum(CAST(event_revenue AS FLOAT64)) event_revenue
+FROM main_raw_data
+GROUP BY ALL
+) mn
+LEFT JOIN (
+  SELECT campaign, af_ad, media_source,country_code,
+event_date,
+COUNT(event_name) as total_installs FROM installs_table
+GROUP BY ALL
+) ins on mn.campaign=ins.campaign and mn.af_ad=ins.af_ad
+and mn.media_source=ins.media_source and mn.event_date=ins.event_date
+and mn.country_code=ins.country_code

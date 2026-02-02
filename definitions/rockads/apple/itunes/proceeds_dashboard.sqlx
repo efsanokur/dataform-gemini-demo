@@ -1,0 +1,165 @@
+config {
+  type: "table",
+  bigquery: {
+    partitionBy: "begin_date"
+  },
+  database: `${dataform.projectConfig.vars.rockadsProject}`,
+  name: "itunes_proceeds_dashboard_table",
+  schema: "thirdparty_datamarts",
+  tags: ['itunes_proceeds_dashboard_table']
+}
+
+WITH
+  data_to_write_old AS (
+  SELECT
+    iss.begin_date,
+    ia.account_name AS account_name,
+    ia.company_name,
+    app_name,
+    iss.sku,
+    iss.title,
+    name AS country_name,
+    iss.category,
+    CASE
+      WHEN product_type_identifier LIKE '%IAY%' THEN 'Subscription'
+      WHEN product_type_identifier IS NULL THEN NULL
+      ELSE 'in-App'
+  END
+    AS proceeds_type,
+    SUM(CAST(iss.units AS float64) * CAST(iss.developer_proceeds AS float64) / (CASE
+          WHEN iss.customer_currency = 'USD' THEN 1
+          ELSE currency_rate
+      END
+        ) ) AS Proceeds_with_Rate,
+    SUM(ABS(CAST(iss.units AS float64)) * CAST(iss.customer_price AS float64) / (CASE
+          WHEN iss.customer_currency = 'USD' THEN 1
+          ELSE currency_rate
+      END
+        ) ) AS Sales_with_Rate,
+    SUM(CASE
+        WHEN CAST(iss.units AS float64)>0 THEN CAST(iss.units AS float64)
+        ELSE 0
+    END
+      ) AS order_count,
+    SUM(CASE
+        WHEN CAST(iss.units AS float64)<0 THEN ABS(CAST(iss.units AS float64))
+        ELSE 0
+    END
+      ) AS return_count
+  FROM
+    `rockads-thirdparty.itunes.itunes_sales_summary_report_*` iss
+  LEFT JOIN
+    `rockads-thirdparty.mapping_tables.currency_rates_*` cr
+  ON
+    cr.date = iss.begin_date
+    AND cr.relative_currency = iss.customer_currency
+  LEFT JOIN
+    `rockads-thirdparty.mapping_tables.itunes_account_names` ia
+  ON
+    ia.account_number = iss.account_number
+    AND ia.account_type = 'sales'
+  LEFT JOIN
+    `rockads-thirdparty.mapping_tables.itunes_app_names` appn
+  ON
+    appn.sku = iss.sku
+    AND appn.apple_identifier = iss.apple_identifier
+  LEFT JOIN
+    rockads-thirdparty.mapping_tables.countries c
+  ON
+    c.short_code = iss.country_code
+  GROUP BY
+    iss.begin_date,
+    account_name,
+    ia.company_name,
+    app_name,
+    iss.sku,
+    iss.title,
+    country_name,
+    proceeds_type,
+    iss.category ),
+
+data_to_write_new AS (
+  SELECT
+    iss.begin_date,
+    ia.account_name AS account_name,
+    ia.company_name,
+    app_name,
+    iss.sku,
+    iss.title,
+    name AS country_name,
+    iss.category,
+    CASE
+      WHEN product_type_identifier LIKE '%IAY%' THEN 'Subscription'
+      WHEN product_type_identifier IS NULL THEN NULL
+      ELSE 'in-App'
+  END
+    AS proceeds_type,
+    SUM(CAST(iss.units AS float64) * CAST(iss.developer_proceeds AS float64) / (CASE
+          WHEN iss.customer_currency = 'USD' THEN 1
+          ELSE currency_rate
+      END
+        ) ) AS Proceeds_with_Rate,
+    SUM(ABS(CAST(iss.units AS float64)) * CAST(iss.customer_price AS float64) / (CASE
+          WHEN iss.customer_currency = 'USD' THEN 1
+          ELSE currency_rate
+      END
+        ) ) AS Sales_with_Rate,
+    SUM(CASE
+        WHEN CAST(iss.units AS float64)>0 THEN CAST(iss.units AS float64)
+        ELSE 0
+    END
+      ) AS order_count,
+    SUM(CASE
+        WHEN CAST(iss.units AS float64)<0 THEN ABS(CAST(iss.units AS float64))
+        ELSE 0
+    END
+      ) AS return_count
+  FROM
+    `rockads-thirdparty.itunes_connect_api.itunes_sales_summary_report_*` iss
+    LEFT JOIN (SELECT DISTINCT vendor_number, account_number
+              FROM `rockads-thirdparty.itunes.itunes_vendors`) vendors
+    ON iss.vendor_number=vendors.vendor_number
+
+  LEFT JOIN
+    `rockads-thirdparty.mapping_tables.currency_rates_*` cr
+  ON
+    cr.date = iss.begin_date
+    AND cr.relative_currency = iss.customer_currency
+  LEFT JOIN
+    `rockads-thirdparty.mapping_tables.itunes_account_names` ia
+  ON
+    ia.account_number = vendors.account_number
+    AND ia.account_type = 'sales'
+  LEFT JOIN
+    `rockads-thirdparty.mapping_tables.itunes_app_names` appn
+  ON
+    appn.sku = iss.sku
+    AND appn.apple_identifier = SAFE_CAST(iss.apple_identifier AS STRING)
+  LEFT JOIN
+    rockads-thirdparty.mapping_tables.countries c
+  ON
+    c.short_code = iss.country_code
+  GROUP BY
+    iss.begin_date,
+    account_name,
+    ia.company_name,
+    app_name,
+    iss.sku,
+    iss.title,
+    country_name,
+    proceeds_type,
+    iss.category ),
+unioned as (
+SELECT
+  *
+FROM
+  data_to_write_old
+UNION ALL
+SELECT
+  *
+FROM
+  data_to_write_new
+    )
+
+SELECT DISTINCT *
+FROM unioned

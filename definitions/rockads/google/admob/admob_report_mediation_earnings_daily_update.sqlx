@@ -1,0 +1,75 @@
+config {
+  type: "table",
+    bigquery: {
+    partitionBy: "created_time"
+  },
+  database: `${dataform.projectConfig.vars.rockadsProject}`,
+  name: "admob_report_mediation_earnings",
+  schema: "thirdparty_datamarts",
+  tags: ['admob']
+}
+
+WITH
+  app_names AS (
+  SELECT
+    DISTINCT app_id,
+    app_name
+  FROM (
+    SELECT
+      app_name,
+      app_id,
+      ROW_NUMBER() OVER(PARTITION BY app_id ORDER BY created_time DESC) AS rn
+    FROM
+      `${dataform.projectConfig.vars.rockadsProject}.admob.admob_mediation_earnings_*`)
+  WHERE
+    rn = 1
+  ORDER BY
+    1)
+SELECT
+  created_time,
+  t.platform Platform,
+  t.currency Currency,
+  CASE
+    WHEN an.app_name IS NOT NULL THEN an.app_name
+    WHEN aa.manualAppInfo_displayName IS NOT NULL THEN aa.manualAppInfo_displayName
+    ELSE t.app_name
+END
+  AS Name,
+  t.country_code,
+  c.name AS country,
+  SUM(CAST(ad_requests AS float64)) AS total_ad_requests,
+  SUM(CAST(matched_requests AS float64)) AS total_matched_requests,
+  SUM(CAST(impressions AS float64)) AS total_impressions,
+  SUM(CAST(clicks AS float64)) AS total_clicks,
+  SUM(CAST(estimated_earnings AS float64)) AS total_earning,
+  SUM(CAST(estimated_earnings AS float64) / (CASE
+        WHEN t.currency = 'USD' THEN 1
+        ELSE currency_rate
+    END
+      )) AS total_earning_usd
+FROM
+  `${dataform.projectConfig.vars.rockadsProject}.admob.admob_mediation_earnings_*`t
+LEFT JOIN
+  `${dataform.projectConfig.vars.rockadsProject}.mapping_tables.currency_rates_*` cr
+ON
+  cr.relative_currency = t.currency
+  AND t.created_time = cr.date
+LEFT JOIN
+  app_names an
+ON
+  t.app_id = an.app_id
+LEFT JOIN
+  ${dataform.projectConfig.vars.rockadsProject}.admob.admob_apps aa
+ON
+  aa.app_id = t.app_id
+LEFT JOIN
+  ${dataform.projectConfig.vars.rockadsProject}.mapping_tables.countries c
+ON
+  c.short_code = t.country_code
+GROUP BY
+  created_time,
+  t.platform,
+  t.currency,
+  Name,
+  t.country_code,
+  c.name

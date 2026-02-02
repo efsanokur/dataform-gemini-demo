@@ -1,0 +1,46 @@
+
+config {
+  type: "table",
+  bigquery: {
+    partitionBy: "report_date",
+    clusterBy: ["country_code","app_name"]
+   },
+  database: `${dataform.projectConfig.vars.rockadsProject}`,
+  schema: "zotlo_marketing_ds",
+  name: "ads_purchase_refund_combined_zotlo",
+  tags: ["ads_purchase_refund_combined_zotlo"],
+  description: "Combined daily purchase and refund data for Zotlo, with refunds as negative amounts."
+}
+
+
+SELECT
+date AS report_date,
+app_name,
+UPPER(country) AS country_code,
+utm_content AS ad_name,
+utm_medium AS ad_group_name,
+utm_source AS media_source,
+utm_campaign AS campaign_name,
+IFNULL(transaction_type, 'zotlo_unkown_event') as event_name,
+SUM(total_amount_usd) AS amount,
+SUM(event_count) AS event_count
+from `zotlo-dataland.zotlo_datamarts.purchase_count_daily`
+WHERE status="success"
+group by ALL
+
+UNION ALL
+
+SELECT
+date AS report_date,
+app_name,
+UPPER(country) AS country_code,
+utm_content AS ad_name,
+utm_medium AS ad_group_name,
+utm_source AS media_source,
+utm_campaign AS campaign_name,
+IFNULL(transaction_type, 'zotlo_unkown_event') as event_name,
+-SUM(total_amount_usd) AS amount,
+SUM(total_transaction_count) AS event_count
+from `zotlo-dataland.zotlo_datamarts.refund_count_daily`
+WHERE status="success"
+group by ALL

@@ -1,0 +1,52 @@
+config {
+  type: "table",
+  database: `${dataform.projectConfig.vars.rockadsProject}`,
+  name: "ads_audience_reports_by_country_merged",
+  schema: "tiktok_airbyte_datamarts",
+  tags: ["tiktok_airbyte_etl_all"]
+}
+
+SELECT
+  *
+FROM
+  `${dataform.projectConfig.vars.rockadsProject}.tiktok_airbyte_datamarts.ads_audience_reports_by_country_merged_id6738388891`
+UNION ALL
+SELECT
+   *
+FROM
+  `${dataform.projectConfig.vars.rockadsProject}.tiktok_airbyte_datamarts.ads_audience_reports_by_country_merged_id6473276045`
+UNION ALL
+SELECT
+    *
+FROM
+  `${dataform.projectConfig.vars.rockadsProject}.tiktok_airbyte_datamarts.ads_audience_reports_by_country_merged_6909398635499225089`
+UNION ALL
+SELECT
+    *
+FROM
+  `${dataform.projectConfig.vars.rockadsProject}.tiktok_airbyte_datamarts.ads_audience_reports_by_country_merged_id1010631459`
+UNION ALL
+SELECT
+    *
+FROM
+  `${dataform.projectConfig.vars.rockadsProject}.tiktok_airbyte_datamarts.ads_audience_reports_by_country_merged_id6443832829`
+UNION ALL
+SELECT
+    *
+FROM
+  `${dataform.projectConfig.vars.rockadsProject}.tiktok_airbyte_datamarts.ads_audience_reports_by_country_merged_id1363478842`
+UNION ALL
+SELECT
+    *
+FROM
+  `${dataform.projectConfig.vars.rockadsProject}.tiktok_airbyte_datamarts.ads_audience_reports_by_country_merged_id1662905686`
+UNION ALL
+SELECT
+    *
+FROM
+  `${dataform.projectConfig.vars.rockadsProject}.tiktok_airbyte_datamarts.ads_audience_reports_by_country_merged_id6736979983`
+UNION ALL
+SELECT
+    *
+FROM
+  `${dataform.projectConfig.vars.rockadsProject}.tiktok_airbyte_datamarts.ads_audience_reports_by_country_merged_id6738990592`

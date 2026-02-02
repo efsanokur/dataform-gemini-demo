@@ -1,0 +1,23 @@
+config {
+  type: "table",
+  database: `${dataform.projectConfig.vars.rockadsProject}`,
+  name: "id6443832829_tiktok_links_urls",
+  schema: "id6443832829_appsflyer_ds",
+  dependencies: ['id6443832829_facebook_links_urls'],
+  tags: ['appsflyer_id6443832829_main']
+}
+SELECT * EXCEPT(report_date) FROM (
+SELECT
+DISTINCT
+    ad_name AS ad,
+    stat_time_day AS report_date,
+    'id6443832829' AS app_id,
+    'tiktokglobal_int' as media_source,
+    cast(null as string) as appsflyer_os_id,
+    video_thumbnail_url as thumbnail_url,
+    video_url,
+  FROM
+    `${dataform.projectConfig.vars.rockadsProject}.tiktok_airbyte_datamarts.ads_audience_reports_by_country_merged_id6443832829`
+  GROUP BY
+    ALL
+) QUALIFY row_number() over(partition by ad ORDER BY report_date desc) = 1

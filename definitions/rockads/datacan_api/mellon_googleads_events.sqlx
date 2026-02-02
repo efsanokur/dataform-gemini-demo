@@ -1,0 +1,18 @@
+config {
+  type: "table",
+  bigquery: {
+    partitionBy: "segments_date",
+    clusterBy: ["app_name", "geo"]
+  },
+  database: `${dataform.projectConfig.vars.rockadsProject}`,
+  name: "mellon_googleads_raw_events",
+  schema: "datacan_thirdparty_api_datamarts",
+  tags: ['datacan_mellon_daily']
+}
+
+SELECT
+  *,
+  CASE WHEN customer_id IN (7539909317, 4788921176) THEN 'videa' END AS app_name
+FROM
+  `rockads-thirdparty.googleAds_dm.all_apps_geographic_view`
+WHERE customer_id IN (7539909317, 4788921176)

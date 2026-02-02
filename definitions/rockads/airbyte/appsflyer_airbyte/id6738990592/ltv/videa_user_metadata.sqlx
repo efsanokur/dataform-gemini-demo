@@ -1,0 +1,144 @@
+config {
+    type: "operations",
+    name: "videa_user_metadata",
+    tags: ['appsflyer_id6738990592_user_based'],
+    database: `${dataform.projectConfig.vars.rockadsProject}`,
+    schema: "appsflyer_ltv",
+    description: "Daily operation that scans the last 3 days of AppsFlyer and Amplitude events to insert new users while preserving existing metadata."
+}
+
+MERGE `${dataform.projectConfig.vars.rockadsProject}.appsflyer_ltv.videa_user_metadata` T
+USING (
+  WITH
+    main_data AS (
+      SELECT
+        event_name,
+        customer_user_id,
+        IF(campaign = '', NULL, campaign) AS campaign,
+        IF(af_adset = '', NULL, af_adset) AS af_adset,
+        IF(af_ad = '', NULL, af_ad) AS af_ad,
+        IF(af_ad_id = '', NULL, af_ad_id) AS af_ad_id,
+        CASE
+          WHEN media_source IN ('facebook', 'restricted') THEN 'Facebook Ads'
+          ELSE IF(media_source = '', NULL, media_source)
+        END AS media_source,
+        'ios' AS appsflyer_os_id,
+        country_code,
+        DATE(install_time) AS event_date,
+        event_time
+      FROM
+        `${dataform.projectConfig.vars.rockadsProject}.appsflyer_airflow.id6738990592_in_app_events`
+      WHERE
+        customer_user_id IS NOT NULL
+        AND event_name LIKE 'rc_%'
+        AND event_time >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 3 DAY)
+
+      UNION ALL
+      SELECT
+        event_name,
+        customer_user_id,
+        IF(campaign = '', NULL, campaign) AS campaign,
+        IF(af_adset = '', NULL, af_adset) AS af_adset,
+        IF(af_ad = '', NULL, af_ad) AS af_ad,
+        IF(af_ad_id = '', NULL, af_ad_id) AS af_ad_id,
+        CASE
+          WHEN media_source IN ('facebook', 'restricted') THEN 'Facebook Ads'
+          ELSE IF(media_source = '', NULL, media_source)
+        END AS media_source,
+        'android' AS appsflyer_os_id,
+        country_code,
+        DATE(install_time) AS event_date,
+        event_time
+      FROM
+        `${dataform.projectConfig.vars.rockadsProject}.appsflyer_airflow.com_videoai_effects_in_app_events`
+      WHERE
+        customer_user_id IS NOT NULL
+        AND event_name LIKE 'rc_%'
+        AND event_time >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 3 DAY)
+
+      UNION ALL
+      SELECT
+        event_name,
+        customer_user_id,
+        'ORGANIC' AS campaign,
+        'ORGANIC' AS af_adset,
+        'ORGANIC' AS af_ad,
+        'ORGANIC' AS af_ad_id,
+        'ORGANIC' AS media_source,
+        'ios' AS appsflyer_os_id,
+        country_code,
+        DATE(install_time) AS event_date,
+        event_time
+      FROM
+        `${dataform.projectConfig.vars.rockadsProject}.appsflyer.id6738990592_organic_in_app_events`
+      WHERE
+        customer_user_id IS NOT NULL
+        AND event_name LIKE 'rc_%'
+        AND event_time >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 3 DAY)
+
+      UNION ALL
+      SELECT
+        event_name,
+        customer_user_id,
+        'ORGANIC' AS campaign,
+        'ORGANIC' AS af_adset,
+        'ORGANIC' AS af_ad,
+        'ORGANIC' AS af_ad_id,
+        'ORGANIC' AS media_source,
+        'android' AS appsflyer_os_id,
+        country_code,
+        DATE(install_time) AS event_date,
+        event_time
+      FROM
+        `${dataform.projectConfig.vars.rockadsProject}.appsflyer.com_videoai_effects_organic_in_app_events`
+      WHERE
+        customer_user_id IS NOT NULL
+        AND event_name LIKE 'rc_%'
+        AND event_time >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 3 DAY)
+    ),
+    amp_device_info AS (
+      SELECT
+        user_id,
+        os_name,
+        device_family,
+        country,
+        city
+      FROM
+        `${dataform.projectConfig.vars.rockadsProject}.amplitude_raw.EVENTS_664196`
+      WHERE
+        event_type LIKE 'rc_%'
+        AND user_id IS NOT NULL
+        AND event_time >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 3 DAY)
+      QUALIFY
+        ROW_NUMBER() OVER (PARTITION BY user_id ORDER BY event_time ASC) = 1
+    )
+  SELECT
+    customer_user_id,
+    md.event_time,
+    event_date AS install_date,
+    campaign,
+    af_adset,
+    af_ad,
+    af_ad_id,
+    media_source,
+    COALESCE(amp.os_name, md.appsflyer_os_id) AS os_name,
+    amp.device_family,
+    amp.country,
+    amp.city
+  FROM
+    main_data md
+  LEFT JOIN
+    amp_device_info amp
+    ON amp.user_id = md.customer_user_id
+  QUALIFY
+    ROW_NUMBER() OVER (PARTITION BY customer_user_id ORDER BY event_time ASC) = 1
+) S
+ON T.customer_user_id = S.customer_user_id
+
+WHEN NOT MATCHED THEN
+  INSERT (
+    customer_user_id, event_time, install_date, campaign, af_adset, af_ad, af_ad_id, media_source, os_name, device_family, country, city
+  )
+  VALUES (
+    S.customer_user_id, S.event_time, S.install_date, S.campaign, S.af_adset, S.af_ad, S.af_ad_id, S.media_source, S.os_name, S.device_family, S.country, S.city
+  )

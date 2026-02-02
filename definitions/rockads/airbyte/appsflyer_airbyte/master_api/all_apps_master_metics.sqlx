@@ -1,0 +1,36 @@
+config {
+  type: "table",
+  database: `${dataform.projectConfig.vars.rockadsProject}`,
+  name: "all_apps_master_metrics",
+  schema: "all_appsflyer_ds",
+  bigquery: {
+        partitionBy: "install_time",
+        clusterBy: ["appsflyer_app_id", "media_source", "geo"]
+    },
+  tags: ['appsflyer_all_apps_main']
+}
+
+
+SELECT
+  DATE(Install_Time) AS install_time,
+  App_ID AS appsflyer_app_id,
+  Campaign AS campaign,
+  Ad AS ad,
+  Adset AS adset,
+  GEO AS geo,
+  IF(Media_Source='Organic','ORGANIC',Media_Source) AS media_source,
+  SUM(Cost) AS cost,
+  SUM(Revenue) AS revenue,
+  SUM(Impressions) AS impressions,
+  SUM(Clicks) AS clicks,
+  SUM(Installs) AS installs,
+FROM
+  `rockads-thirdparty.appsflyer.master_metrics_*`
+GROUP BY
+  1,
+  2,
+  3,
+  4,
+  5,
+  6,
+  7

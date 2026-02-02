@@ -1,0 +1,104 @@
+config {
+  type: "table",
+    bigquery: {
+    partitionBy: "event_date",
+    clusterBy: ["country_code"]
+  },
+  database: `${dataform.projectConfig.vars.rockadsProject}`,
+  name: "id6736979983_organic_activity_event_counts_unique",
+  schema: "id6736979983_appsflyer_ds",
+  dependencies: ['id6736979983_organic_activity_revenues'],
+  tags: ['appsflyer_id6736979983_main']
+}
+
+WITH main_raw_data AS (
+SELECT  'ORGANIC' as campaign, 'ORGANIC' as af_adset, 'ORGANIC' as af_ad,'ORGANIC' as af_ad_id, event_name,'ORGANIC' as media_source,
+'id6736979983' as appsflyer_os_id,
+country_code,customer_user_id,
+IFNULL(SAFE_CAST(NULLIF(event_revenue_usd, '') AS FLOAT64),  SAFE_CAST(NULLIF(event_revenue, '') AS FLOAT64)) AS event_revenue,
+DATE(event_time) as event_date,
+
+ FROM `${dataform.projectConfig.vars.rockadsProject}.appsflyer.id6736979983_organic_in_app_events`
+ WHERE event_time < '${realtime_marketing.realtime_start_ts_calc}'
+
+UNION ALL
+SELECT 'ORGANIC' as campaign, 'ORGANIC' as af_adset, 'ORGANIC' as af_ad,'ORGANIC' as af_ad_id, event_name,'ORGANIC' as media_source,
+'id6736979983' as appsflyer_os_id,
+country_code,customer_user_id,
+SAFE_CAST(event_revenue_usd AS FLOAT64) AS event_revenue,
+DATE(event_time) as event_date,
+FROM
+`rockads-thirdparty.realtime_appsflyer_events.id6736979983_events_latest`
+WHERE
+    event_time >= '${realtime_marketing.realtime_start_ts_calc}'
+    AND event_time <  '${realtime_marketing.realtime_end_ts_calc}'
+    AND media_source = 'organic'
+
+
+UNION ALL 
+SELECT  'ORGANIC' as campaign, 'ORGANIC' as af_adset, 'ORGANIC' as af_ad,'ORGANIC' as af_ad_id, event_name,'ORGANIC' as media_source,
+'com_shorten' as appsflyer_os_id,
+country_code,customer_user_id,
+IFNULL(SAFE_CAST(NULLIF(event_revenue_usd, '') AS FLOAT64),  SAFE_CAST(NULLIF(event_revenue, '') AS FLOAT64)) AS event_revenue,
+DATE(event_time) as event_date,
+FROM `${dataform.projectConfig.vars.rockadsProject}.appsflyer.com_shorten_organic_in_app_events`
+ WHERE event_time < '${realtime_marketing.realtime_start_ts_calc}'
+
+UNION ALL
+SELECT 'ORGANIC' as campaign, 'ORGANIC' as af_adset, 'ORGANIC' as af_ad,'ORGANIC' as af_ad_id, event_name,'ORGANIC' as media_source,
+'com_shorten' as appsflyer_os_id,
+country_code,customer_user_id,
+SAFE_CAST(event_revenue_usd AS FLOAT64) AS event_revenue,
+DATE(event_time) as event_date,
+FROM
+`rockads-thirdparty.realtime_appsflyer_events.com_shorten_events_latest`
+WHERE
+    event_time >= '${realtime_marketing.realtime_start_ts_calc}'
+    AND event_time <  '${realtime_marketing.realtime_end_ts_calc}'
+    AND media_source = 'organic'
+
+
+UNION ALL
+SELECT  'ORGANIC' as campaign, 'ORGANIC' as af_adset, 'ORGANIC' as af_ad,'ORGANIC' as af_ad_id, event_name,'ORGANIC' as media_source,
+appsflyer_os_id,
+country_code,appsflyer_id,
+event_revenue,
+event_date,
+FROM `rockads-thirdparty.id6736979983_appsflyer_ds.id6736979983_activity_distinct_organic_ad_revenue_v2`
+
+)
+SELECT * FROM (
+SELECT campaign, af_adset, af_ad, af_ad_id, country_code,
+media_source, appsflyer_os_id, event_name,
+event_date,
+count(event_name) AS event_count,
+count(distinct customer_user_id) AS unique_event_count,
+sum(CAST(event_revenue AS FLOAT64)) AS revenue,
+FROM main_raw_data 
+GROUP BY ALL
+)
+PIVOT (
+  MAX(event_count) as activity_event_count,
+  MAX(unique_event_count)  as activity_unique_event_count,
+  MAX(revenue)  as activity_revenue FOR event_name IN (
+    'paywallShowed',
+    'paymentInit',
+    'rc_renewal_event',
+    'rc_trial_converted_event',
+    'rc_expiration_event',
+    'rc_cancellation_event',
+    'rc_billing_issue_event',
+    'rc_initial_purchase_event',
+    'rc_product_change_event',
+    'rc_trial_started_event',
+    'rc_trial_cancelled_event',
+    'WebToAppInstall',
+    'rc_non_subscription_purchase_event',
+    'af_purchase',
+    'package_purchase',
+    'subs_monthly_purchase',
+    'coin_480_purchase',
+    'coin_960_purchase',
+    'af_ad_revenue'
+  )
+)

@@ -1,0 +1,34 @@
+config {
+  type: "table",
+    bigquery: {
+    partitionBy: "report_date",
+    clusterBy: ["media_source"]
+  },
+  database: `${dataform.projectConfig.vars.rockadsProject}`,
+  name: "teli_combined_single_all_cost_dm_all_geo",
+  schema: "teli_adjust_ds",
+  dependencies: ['teli_single_cost_dm_all_geo'],
+  tags: ['adjust_teli_main']
+}
+
+SELECT
+  DISTINCT ad AS ad,
+  report_date as report_date,
+  campaign as campaign,
+  adset as adset,
+  geo,
+  app_id,
+  media_source,
+  adjust_os_id,
+  total_cost,
+  total_installs,
+  total_clicks,
+  total_impressions,
+  total_re_attributions,
+  total_re_engagements,
+  total_video_completions,
+  total_video_25p_views,
+  total_video_50p_views,
+  total_video_75p_views
+FROM
+  `${dataform.projectConfig.vars.rockadsProject}.teli_adjust_ds.teli_single_cost_dm_all_geo` costs

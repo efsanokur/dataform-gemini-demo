@@ -1,0 +1,47 @@
+config {
+  type: "table",
+  bigquery: {
+    partitionBy: "report_date"
+  },
+  database: `${dataform.projectConfig.vars.rockadsProject}`,
+  name: "googlePlay_installs_country_report",
+  schema: "thirdparty_datamarts",
+  tags: ['google_play'],
+  dependencies: ["google_play_app_account_names"]
+}
+
+SELECT
+  ci.date AS report_date,
+  an.account_name,
+  an.app_name,
+  ci.package_name,
+  ci.country,
+  IFNULL(c.name, ci.country) AS country_name,
+  SUM(ci.daily_device_installs) AS total_device_install,
+  SUM(ci.daily_user_installs) total_user_install,
+  SUM(ci.daily_user_uninstalls) total_user_uninstall,
+  SUM(store_listing_visitors) total_listing_visitor,
+  SUM(store_listing_acquisitions) total_listing_acquisition
+FROM
+  `${dataform.projectConfig.vars.rockadsProject}.app_stats.googlePlay_country_installs_*` ci
+LEFT JOIN
+  `${dataform.projectConfig.vars.rockadsProject}.app_stats.googlePlay_country_store_performance_*`csp
+ON
+  csp.country = ci.country
+  AND csp.date = ci.date
+  AND csp.package_name = ci.package_name
+LEFT JOIN
+  ${dataform.projectConfig.vars.rockadsProject}.mapping_tables.google_play_app_account_names an
+ON
+  ci.package_name = an.product_id
+LEFT JOIN
+  ${dataform.projectConfig.vars.rockadsProject}.mapping_tables.countries c
+ON
+  ci.country = c.short_code
+GROUP BY
+  1,
+  2,
+  3,
+  4,
+  5,
+  6

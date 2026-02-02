@@ -1,0 +1,32 @@
+config {
+  type: "table",
+  database: `${dataform.projectConfig.vars.rockadsProject}`,
+  name: "all_spends_api",
+  schema: "datacan_thirdparty_api_datamarts",
+  bigquery: {
+        partitionBy: "created_time",
+        clusterBy: ["channel"]
+    },
+  dependencies: ["facebook_spends_api"],
+  tags: ['datacan_spends_daily']
+}
+
+SELECT
+  created_time, app_name, advertiser_name as additional_name, cast(Null as string) as business, campaign_name, campaign_id, currency_type, channel, amount
+FROM
+  `${dataform.projectConfig.vars.rockadsProject}.datacan_thirdparty_api_datamarts.tiktok_spends_api`
+UNION ALL
+SELECT
+  created_time, app_name, account_id, cast(Null as string) as business, campaign_name, campaign_id, currency_type, channel, amount
+FROM
+  `${dataform.projectConfig.vars.rockadsProject}.datacan_thirdparty_api_datamarts.snapchat_spends_api`
+UNION ALL
+SELECT
+  created_time, app_name, customer_client_name, cast(Null as string) as business, campaign_name, campaign_id, currency_type, channel, amount
+FROM
+  `${dataform.projectConfig.vars.rockadsProject}.datacan_thirdparty_api_datamarts.googleAds_spends_api`
+UNION ALL
+SELECT
+  created_time, app_name, account, business, campaign_name, campaign_id, currency_type, channel, total_spend_usd
+FROM
+  `${dataform.projectConfig.vars.rockadsProject}.datacan_thirdparty_api_datamarts.facebook_spends_api`

@@ -1,0 +1,33 @@
+config {
+  type: "operations",
+  database: `${dataform.projectConfig.vars.rockadsProject}`,
+  name: "mellon_appsflyer_cost_etl",
+  tags: ['datacan_mellon_daily']
+}
+
+# Cost etl
+CREATE OR REPLACE TABLE rockads-thirdparty.datacan_thirdparty_api_datamarts.mellon_appsflyer_cost_etl
+PARTITION BY report_date cluster by app_id,app_name
+as
+WITH
+  main_data AS (
+    SELECT *
+    FROM
+      rockads-thirdparty.id6738990592_appsflyer_ds.id6738990592_single_cost_dm
+    UNION ALL
+    SELECT *
+    FROM
+      rockads-thirdparty.id1662905686_appsflyer_ds.id1662905686_single_cost_dm
+    UNION ALL
+    SELECT *
+    FROM
+      rockads-thirdparty.id6738388891_appsflyer_ds.id6738388891_single_cost_dm
+  )
+SELECT
+  *,
+  CASE
+    WHEN app_id IN ('id6738990592', 'com.videoai.effects') THEN 'videa'
+    WHEN app_id IN ('id1662905686', 'app.roboco.android') THEN 'robo'
+    WHEN app_id IN ('id6738388891') THEN 'cleaner'
+    END AS app_name
+FROM main_data

@@ -1,0 +1,105 @@
+config {
+  type: "table",
+  database: `${dataform.projectConfig.vars.rockadsProject}`,
+  name: "invoice",
+  bigquery: {
+    partitionBy: "DATE(invoice_date)"
+  },
+  schema: "all_invoices",
+  tags: ['datacan_invoice_daily']
+}
+SELECT
+  main.*,
+  vats.vat_id AS advertiser_vat_id
+FROM (
+  SELECT
+    invoice_id,
+    ad_account_ids[SAFE_OFFSET(0)] ad_account_id,
+    advertiser_name,
+    billed_amount_details.currency AS currency,
+    SAFE_CAST(REPLACE(REPLACE(billed_amount_details. net_amount, '.', ''), ',', '.') AS FLOAT64) AS net_amount,
+    SAFE_CAST(REPLACE(REPLACE(billed_amount_details. tax_amount, '.', ''), ',', '.') AS FLOAT64) AS tax_amount,
+    SAFE_CAST(REPLACE(REPLACE(billed_amount_details. total_amount, '.', ''), ',', '.') AS FLOAT64) AS total_amount,
+    'Facebook' AS media_source,
+    cdn_download_uri AS invoice_link,
+    PARSE_DATE('%Y-%m-%d', billing_period) AS billing_period,
+    invoice_date,
+  FROM
+    `${dataform.projectConfig.vars.rockadsProject}.facebook.facebook_invoices_*`
+  QUALIFY
+    ROW_NUMBER() OVER(PARTITION BY id, invoice_id, advertiser_name, amount, invoice_date ORDER BY invoice_date DESC) = 1 ) main
+LEFT JOIN (
+  SELECT advertiser_name, ANY_VALUE(vat_id) AS vat_id
+  FROM `${dataform.projectConfig.vars.rockadsProject}.facebook.facebook_advertiser_vat_ids`
+  GROUP BY advertiser_name
+) vats
+ON main.advertiser_name = vats.advertiser_name
+
+UNION ALL
+SELECT
+  invoice_id,
+  account_id AS ad_account_id,
+  entity_name AS advertiser_name,
+  base_currency AS currency,
+  base_subtotal AS net_amount,
+  base_tax_total AS tax_amount,
+  base_total AS total_amount,
+  'AWS' AS media_source,
+  CAST(NULL AS STRING) AS invoice_link,
+  DATE(CONCAT(CAST(billing_year AS STRING), '-',LPAD(CAST(billing_month AS STRING), 2, '0'),'-01')) AS billing_period,
+  DATETIME(issued_ts) AS invoice_date,
+  NULL AS advertiser_vat_id
+FROM
+  `${dataform.projectConfig.vars.rockadsProject}.amazon.aws_monthly_invoices_*`
+UNION ALL
+SELECT
+  invoice_id,
+  _source_bc_id AS ad_account_id,
+  account_name AS advertiser_name,
+  currency_code AS currency,
+  amount_excluding_tax AS net_amount,
+  total_tax_amount AS tax_amount,
+  amount AS total_amount,
+  'Tiktok' AS media_source,
+  CAST(NULL AS STRING) AS invoice_link,
+  DATE(_window_start) AS billing_period,
+  DATETIME(send_date) AS invoice_date,
+  tax_id1 AS advertiser_vat_id
+FROM
+  `${dataform.projectConfig.vars.rockadsProject}.tiktok.tiktok_invoices_*`
+QUALIFY
+  ROW_NUMBER() OVER (PARTITION BY invoice_id, _source_bc_id ORDER BY send_date DESC, _pulled_at_utc DESC ) = 1
+  UNION ALL
+SELECT
+  invoice_id,
+  user_name AS ad_account_id,
+  CAST(NULL AS STRING) AS advertiser_name,
+  'USD' AS currency,
+  amount AS net_amount,
+  taxes_amount AS tax_amount,
+  (amount + taxes_amount) AS total_amount,
+  'DigitalOcean' AS media_source,
+  CAST(NULL AS STRING) AS invoice_link,
+  DATE(CONCAT(CAST(billing_period AS STRING), '-01')) AS billing_period,
+  DATETIME(invoice_generated_at) AS invoice_date,
+  NULL AS advertiser_vat_id
+FROM
+  `${dataform.projectConfig.vars.rockadsProject}.digital_ocean.digital_ocean_invoices_*`
+UNION ALL
+SELECT
+  invoice_id,
+  customer_id AS ad_account_id,
+  CAST(NULL AS STRING) AS advertiser_name,
+  currency_code AS currency,
+  subtotal_amount AS net_amount,
+  tax_amount AS tax_amount,
+  total_amount AS total_amount,
+  'GoogleAds' AS media_source,
+  pdf_url AS invoice_link,
+  DATE_TRUNC(DATE(issue_date), MONTH) AS billing_period,
+  DATETIME(issue_date) AS invoice_date,
+  CAST(NULL AS STRING) AS advertiser_vat_id
+FROM
+  `${dataform.projectConfig.vars.rockadsProject}.googleAds.googleAds_invoices_*`
+ QUALIFY ROW_NUMBER() OVER (PARTITION BY invoice_id, customer_id ORDER BY issue_date DESC) = 1
+

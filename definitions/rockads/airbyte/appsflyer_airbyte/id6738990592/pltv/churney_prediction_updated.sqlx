@@ -1,0 +1,18 @@
+config {
+  type: "table",
+    bigquery: {
+    partitionBy: "DATE(install_time)",
+    clusterBy: ["geo"]
+  },
+  database: `${dataform.projectConfig.vars.rockadsProject}`,
+  name: "churney_prediction_updated",
+  schema: "appsflyer_ltv",
+  tags: ['appsflyer_id6738990592_churney_pltv'],
+  dependencies: ["churney_prediction"]
+}
+SELECT
+  *
+FROM
+  rockads-thirdparty.appsflyer_ltv.churney_prediction
+QUALIFY
+  ROW_NUMBER() OVER(PARTITION BY user_id, install_time, geo, appsflyer_id, platform, ad, campaign, adset, media_source ORDER BY prediction_time DESC) = 1

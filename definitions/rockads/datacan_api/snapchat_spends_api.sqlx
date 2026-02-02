@@ -1,0 +1,51 @@
+config {
+  type: "table",
+  database: `${dataform.projectConfig.vars.rockadsProject}`,
+  name: "snapchat_spends_api",
+  schema: "datacan_thirdparty_api_datamarts",
+  dependencies: ["tiktok_spends_api"],
+  tags: ['datacan_spends_daily']
+}
+
+WITH ios_apps as (
+  SELECT DISTINCT name as ios_app_name, ad_account_id,  IF(ios_app_id='', NULL, ios_app_id) ios_app_id
+          FROM `${dataform.projectConfig.vars.rockadsProject}.snapchat.snapchat_apps`
+          where ios_app_id is not null
+), android_apps as (
+  SELECT DISTINCT name as android_app_name, ad_account_id, IF(android_app_url='',NULL, android_app_url) android_app_url
+          FROM `${dataform.projectConfig.vars.rockadsProject}.snapchat.snapchat_apps`
+          where android_app_url is not null
+), campaigns as (
+    SELECT id as campaign_id, name as campaign_name, ad_account_id, ios_app_id, android_app_url
+    FROM `${dataform.projectConfig.vars.rockadsProject}.snapchat.snapchat_ad_account_campaigns`
+)
+
+SELECT
+  spends.created_time as created_time,
+  IFNULL(app_name, IFNULL(tsa.app_id, NULL)) app_name,
+  account_id,
+  campaign_name,
+  spends.campaign_id,
+  'USD' AS currency_type,
+  'Snapchat' as channel,
+  SUM(CAST(spend AS float64)) amount
+FROM
+  `${dataform.projectConfig.vars.rockadsProject}.snapchat.snapchat_campaign_os_spends_*` spends
+LEFT JOIN
+  `${dataform.projectConfig.vars.rockadsProject}.mapping_tables.snapchat_account_campaign_names` sac
+ON
+  sac.campaign_id = spends.campaign_id
+LEFT JOIN
+  `${dataform.projectConfig.vars.rockadsProject}.mapping_tables.tiktok_snapchat_appnames` tsa
+ON
+  LOWER(tsa.app_code) = REGEXP_REPLACE(LOWER(SPLIT(split(campaign_name,
+          '-')[SAFE_OFFSET(0)],"_")[SAFE_OFFSET(0)]), r'copy of ', '')
+LEFT JOIN (
+  SELECT DISTINCT campaigns.campaign_id, IFNULL(ios_apps.ios_app_name, IFNULL(android_apps.android_app_name,NULL)) AS app_name,
+  FROM campaigns
+  LEFT JOIN ios_apps on ios_apps.ios_app_id=campaigns.ios_app_id
+  LEFT JOIN android_apps on android_apps.android_app_url=campaigns.android_app_url
+  QUALIFY ROW_NUMBER() OVER (PARTITION BY campaign_id ORDER BY campaign_id desc) = 1
+) api_apps ON api_apps.campaign_id=spends.campaign_id
+GROUP BY
+1,2,3,4,5,6

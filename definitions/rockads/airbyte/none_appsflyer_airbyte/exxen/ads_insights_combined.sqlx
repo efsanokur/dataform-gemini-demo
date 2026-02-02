@@ -1,0 +1,113 @@
+config {
+  type: "table",
+    bigquery: {
+    partitionBy: "report_date",
+    clusterBy: ["media_source","country_code"]
+  },
+  name: "ads_insights_combined_exxen",
+  schema: "exxen_marketing_ds",  
+  database: `${dataform.projectConfig.vars.rockadsProject}`,
+  tags: ["ads_insights_exxen"]
+}
+
+
+SELECT
+  adset_name AS ad_group_name,
+  ad_name,
+  campaign_name,
+  country AS country_code,
+  ad_insight_date_start AS report_date,
+  SUM(total_spend) AS total_spend,
+  SUM(total_impressions) AS total_impressions,
+  SUM(total_clicks) AS total_click,
+  CAST(NULL AS FLOAT64) AS total_conversions,
+  SUM(action_count_fb_mobile_purchase) AS fb_event_count_mobile_purchase,
+  SUM(action_value_total_fb_mobile_purchase) AS fb_event_value_mobile_purchase,
+  SUM(action_count_omni_purchase) AS fb_event_count_omni_purchase,
+  SUM(action_value_total_omni_purchase) AS fb_event_value_omni_purchase,
+  SUM(action_count_add_to_cart) AS fb_event_count_add_to_cart,
+  SUM(total_video_p25_watched) AS fb_event_count_p25_watched,
+  thumbnail_url,
+  video_url,
+  'facebook' AS media_source
+FROM ${dataform.projectConfig.vars.rockadsProject}.fb_airbyte_datamarts.ads_insights_by_country_merged_1186788694772131_exxen
+GROUP BY adset_name, ad_name, campaign_name, country, ad_insight_date_start,thumbnail_url,
+  video_url
+
+UNION ALL
+
+SELECT
+  ad_group_name,
+  NULL AS ad_name,
+  campaign_name,
+  geo AS country_code,
+  segments_date AS report_date,
+  SUM(total_cost) AS total_spend,
+  SUM(total_impressions) AS total_impressions,
+  SUM(total_clicks) AS total_click,
+  SUM(conversions) AS total_conversions,
+  CAST(NULL AS NUMERIC)  AS fb_event_count_mobile_purchase,
+  CAST(NULL AS NUMERIC)  AS fb_event_value_mobile_purchase,
+  CAST(NULL AS NUMERIC)  AS fb_event_count_omni_purchase,
+  CAST(NULL AS NUMERIC)  AS fb_event_value_omni_purchase,
+  CAST(NULL AS NUMERIC)  AS fb_event_count_add_to_cart,
+  CAST(NULL AS NUMERIC)  AS fb_event_count_p25_watched,
+  CAST(NULL AS string)  AS thumbnail_url,
+  CAST(NULL AS string) AS video_url,
+  'google' AS media_source
+FROM ${dataform.projectConfig.vars.rockadsProject}.googleAds_dm.all_apps_geographic_view
+WHERE customer_id = 2967570752
+GROUP BY ad_group_name, campaign_name, geo, segments_date,thumbnail_url,
+  video_url
+
+UNION ALL
+
+SELECT
+  CAST(NULL AS STRING) AS ad_group_name,
+  NULL AS ad_name,
+  campaign_name,
+  geo AS country_code,
+  segments_date AS report_date,
+  SUM(total_cost) AS total_spend,
+  SUM(total_impressions) AS total_impressions,
+  SUM(total_clicks) AS total_click,
+  SUM(conversions) AS total_conversions,
+  CAST(NULL AS NUMERIC)  AS fb_event_count_mobile_purchase,
+  CAST(NULL AS NUMERIC)  AS fb_event_value_mobile_purchase,
+  CAST(NULL AS NUMERIC)  AS fb_event_count_omni_purchase,
+  CAST(NULL AS NUMERIC)  AS fb_event_value_omni_purchase,
+  CAST(NULL AS NUMERIC)  AS fb_event_count_add_to_cart,
+  CAST(NULL AS NUMERIC)  AS fb_event_count_p25_watched,
+  CAST(NULL AS string)  AS thumbnail_url,
+  CAST(NULL AS string) AS video_url,
+  'google' AS media_source
+FROM ${dataform.projectConfig.vars.rockadsProject}.googleAds_dm.all_apps_campaign_geographic_view
+WHERE customer_id = 2967570752
+GROUP BY ad_group_name, campaign_name, geo, segments_date,thumbnail_url,
+  video_url
+
+UNION ALL
+
+
+SELECT
+  adgroup_name AS ad_group_name,
+  ad_name,
+  campaign_name,
+  country_code,
+  stat_time_day AS report_date,
+  SUM(spend) AS total_spend,
+  SUM(impressions) AS total_impressions,
+  SUM(clicks) AS total_click,
+  SUM(conversions) AS total_conversions,
+  CAST(NULL AS NUMERIC)  AS fb_event_count_mobile_purchase,
+  CAST(NULL AS NUMERIC)  AS fb_event_value_mobile_purchase,
+  CAST(NULL AS NUMERIC)  AS fb_event_count_omni_purchase,
+  CAST(NULL AS NUMERIC)  AS fb_event_value_omni_purchase,
+  CAST(NULL AS NUMERIC)  AS fb_event_count_add_to_cart,
+  CAST(NULL AS NUMERIC)  AS fb_event_count_p25_watched,
+  video_thumbnail_url,
+  video_url,
+  'tiktok' AS media_source
+FROM ${dataform.projectConfig.vars.rockadsProject}.tiktok_airbyte_datamarts.ads_audience_reports_by_country_merged_6909398635499225089
+GROUP BY adgroup_name, ad_name, campaign_name, country_code, stat_time_day,video_thumbnail_url,
+  video_url

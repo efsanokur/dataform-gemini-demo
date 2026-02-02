@@ -1,0 +1,41 @@
+config {
+  type: "table",
+  database: `${dataform.projectConfig.vars.rockadsProject}`,
+  name: "snapchat_account_campaign_names",
+  schema: "mapping_tables",
+  tags: ['snapchat']
+}
+
+WITH
+  new_or_update AS (
+  SELECT
+    DISTINCT saa.account_id,
+    saa.account_name,
+    sac.campaign_id,
+    sac.campaign_name
+  FROM
+    `${dataform.projectConfig.vars.rockadsProject}.snapchat.snapchat_ad_campaigns` sac
+  LEFT JOIN
+    `${dataform.projectConfig.vars.rockadsProject}.snapchat.snapchat_ad_accounts` saa
+  ON
+    saa.account_id = sac.account_id ),
+  history AS (
+  SELECT
+    *
+  FROM
+    `${dataform.projectConfig.vars.rockadsProject}.mapping_tables.snapchat_account_campaign_names`
+  WHERE
+    campaign_id NOT IN (
+    SELECT
+      campaign_id
+    FROM
+      new_or_update ) )
+SELECT
+  *
+FROM
+  history
+UNION ALL
+SELECT
+  *
+FROM
+  new_or_update

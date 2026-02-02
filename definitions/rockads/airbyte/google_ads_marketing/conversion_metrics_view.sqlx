@@ -1,0 +1,45 @@
+config {
+  type: "table",
+  bigquery: {
+    partitionBy: "segments_date",
+    clusterBy: ["customer_id"]
+  },
+  database: `${dataform.projectConfig.vars.rockadsProject}`,
+  name: "conversion_metrics",
+  schema: "googleAds_dm",
+  tags: ["google_ads_marketing"]
+}
+
+SELECT
+  DATE(date) AS segments_date,
+  CAST(campaign_id AS INT64) AS campaign_id,
+  CAST(ad_group_id AS INT64) AS ad_group_id,
+  CAST(geographicView_countryCriterionId AS INT64) AS country_criterion_id,
+  CAST(client_id AS INT64) AS customer_id,
+  SUM(
+    CASE
+      WHEN conversion_category = 'BEGIN_CHECKOUT' THEN SAFE_CAST(conversions AS FLOAT64)
+      ELSE 0
+  END
+    ) AS google_begin_checkout,
+  SUM(
+    CASE
+      WHEN conversion_category = 'DOWNLOAD' THEN SAFE_CAST(conversions AS FLOAT64)
+      ELSE 0
+  END
+    ) AS google_download,
+  SUM(
+    CASE
+      WHEN conversion_category = 'PURCHASE' THEN SAFE_CAST(conversions AS FLOAT64)
+      ELSE 0
+  END
+    ) AS google_purchase
+FROM
+  `rockads-thirdparty.googleAds.googleAds_purchase_*`
+GROUP BY
+  segments_date,
+  campaign_id,
+  ad_group_id,
+  country_criterion_id,
+  customer_id
+

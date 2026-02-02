@@ -1,0 +1,23 @@
+config {
+  type: "table",
+  bigquery: {
+    partitionBy: "stat_time_day",
+    clusterBy: ["app_name", "country_code"]
+  },
+  database: `${dataform.projectConfig.vars.rockadsProject}`,
+  name: "mellon_tiktok_raw_events",
+  schema: "datacan_thirdparty_api_datamarts",
+  tags: ['datacan_mellon_daily']
+}
+
+SELECT *, 'cleaner' as app_name
+FROM
+  rockads-thirdparty.tiktok_airbyte_datamarts.ads_audience_reports_by_country_merged_id6738388891
+UNION ALL
+SELECT *, 'videa' as app_name
+FROM
+  rockads-thirdparty.tiktok_airbyte_datamarts.ads_audience_reports_by_country_merged_id6738990592
+UNION ALL
+SELECT *, 'robo' as app_name
+FROM
+  rockads-thirdparty.tiktok_airbyte_datamarts.ads_audience_reports_by_country_merged_id1662905686

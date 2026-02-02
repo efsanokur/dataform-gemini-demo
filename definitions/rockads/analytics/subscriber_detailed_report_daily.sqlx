@@ -1,0 +1,215 @@
+config {
+    type: "incremental",
+    database: `${dataform.projectConfig.vars.rockadsProject}`,
+    name: "user_subscriber_detailed_report",
+    schema: "subscription_cohorts",
+    tags: ['rockads_main_analytics_pipeline'],
+    dependencies: ["subscriber_detailed_report_daily_update"]
+}
+
+WITH stripe_invoices AS (
+SELECT
+      id, app_id,
+      REGEXP_REPLACE(REGEXP_REPLACE(JSON_EXTRACT_SCALAR(lines, '$.data[0].description'), r' \(.*\)', ''), r'^\d+\s×(\s\*\s)?', '') AS package_id
+FROM
+(
+SELECT id, lines, "Kegelmen" AS app_id FROM `${dataform.projectConfig.vars.rockadsProject}.stripe.kegelmen_invoices` WHERE DATE(TIMESTAMP_SECONDS(created)) < CURRENT_DATE()
+UNION ALL
+SELECT id, lines, "Moovbuddy" AS app_id FROM `${dataform.projectConfig.vars.rockadsProject}.stripe.moovbuddy_invoices` WHERE DATE(TIMESTAMP_SECONDS(created)) < CURRENT_DATE()
+UNION ALL
+SELECT id, lines, "Youngface" AS app_id FROM `${dataform.projectConfig.vars.rockadsProject}.stripe.youngface_invoices` WHERE DATE(TIMESTAMP_SECONDS(created)) < CURRENT_DATE()
+)
+WHERE LOWER(JSON_EXTRACT_SCALAR(lines, '$.data[0].description')) NOT LIKE "%test%" AND LOWER(JSON_EXTRACT_SCALAR(lines, '$.data[0].description')) NOT LIKE "%unused%"
+),
+
+stripe_balance_transactions AS (
+SELECT * FROM (
+SELECT *, "Kegelmen" AS app_id FROM `${dataform.projectConfig.vars.rockadsProject}.stripe.kegelmen_balance_transactions`
+UNION ALL
+SELECT *, "Moovbuddy" AS app_id FROM `${dataform.projectConfig.vars.rockadsProject}.stripe.moovbuddy_balance_transactions`
+UNION ALL
+SELECT *, "Youngface" AS app_id FROM `${dataform.projectConfig.vars.rockadsProject}.stripe.youngface_balance_transactions`
+) WHERE DATE(TIMESTAMP_SECONDS(created)) < CURRENT_DATE()
+),
+
+stripe_customers AS (
+SELECT * FROM (
+SELECT *, "Kegelmen" AS app_id FROM `${dataform.projectConfig.vars.rockadsProject}.stripe.kegelmen_customers`
+UNION ALL
+SELECT *, "Moovbuddy" AS app_id FROM `${dataform.projectConfig.vars.rockadsProject}.stripe.moovbuddy_customers`
+UNION ALL
+SELECT *, "Youngface" AS app_id FROM `${dataform.projectConfig.vars.rockadsProject}.stripe.youngface_customers`
+) WHERE DATE(TIMESTAMP_SECONDS(created)) < CURRENT_DATE()
+), 
+
+stripe_charges AS (
+SELECT * FROM (
+SELECT *, "Kegelmen" AS app_id FROM `${dataform.projectConfig.vars.rockadsProject}.stripe.kegelmen_charges`
+UNION ALL
+SELECT *, "Moovbuddy" AS app_id FROM `${dataform.projectConfig.vars.rockadsProject}.stripe.moovbuddy_charges`
+UNION ALL
+SELECT *, "Youngface" AS app_id FROM `${dataform.projectConfig.vars.rockadsProject}.stripe.youngface_charges`
+) WHERE customer IS NOT NULL AND paid = TRUE AND status = "succeeded" AND captured = TRUE
+AND DATE(TIMESTAMP_SECONDS(created)) < CURRENT_DATE()
+),
+
+stripe_refunds AS (
+SELECT sc.*, kr.created AS refund_created, kr.balance_transaction AS refund_balance_transaction FROM (
+SELECT * FROM (
+SELECT *, "Kegelmen" AS app_id FROM `${dataform.projectConfig.vars.rockadsProject}.stripe.kegelmen_refunds`
+UNION ALL
+SELECT *, "Moovbuddy" AS app_id FROM `${dataform.projectConfig.vars.rockadsProject}.stripe.moovbuddy_refunds`
+UNION ALL
+SELECT *, "Youngface" AS app_id FROM `${dataform.projectConfig.vars.rockadsProject}.stripe.youngface_refunds`
+) WHERE DATE(TIMESTAMP_SECONDS(created)) < CURRENT_DATE()
+) kr
+INNER JOIN stripe_charges sc ON kr.payment_intent = sc.payment_intent
+)
+
+SELECT DISTINCT * FROM
+(
+    SELECT
+          event_date,
+          account_number,
+          'iOS' AS platform,
+          country,
+          subscriber_id,
+          app_apple_id AS app_id,
+          subscription_apple_id AS package_id,
+          CAST(customer_price AS FLOAT64) AS customer_price,
+          CASE WHEN refund = "Yes" THEN CAST(developer_proceeds AS FLOAT64) * (-1)
+          ELSE CAST(developer_proceeds AS FLOAT64) END AS developer_proceeds,
+          customer_currency,
+          refund
+    FROM `${dataform.projectConfig.vars.rockadsProject}.itunes.itunes_subscriber_detailed_report_*`
+    WHERE _TABLE_SUFFIX BETWEEN '${rockads_analytics_libs.formattedBQPeriodStartDateYYYYMMDD}'
+      AND '${rockads_analytics_libs.formattedDate1DayAgoYYYYMMDD}'
+    AND account_number IN ${rockads_analytics_libs.accountNumbersSqlInClause} AND CAST(customer_price AS FLOAT64) != 0 AND TRIM(subscriber_id) != ""
+    AND subscription_offer_type != "Free Trial"
+
+    UNION ALL
+    SELECT
+          event_date,
+          account_number,
+          'iOS' AS platform,
+          country,
+          subscriber_id,
+          app_apple_id AS app_id,
+          subscription_apple_id AS package_id,
+          CAST(customer_price AS FLOAT64) AS customer_price,
+          CASE WHEN refund = "Yes" THEN CAST(developer_proceeds AS FLOAT64) * (-1)
+          ELSE CAST(developer_proceeds AS FLOAT64) END AS developer_proceeds,
+          customer_currency,
+          refund
+    FROM `${dataform.projectConfig.vars.rockadsProject}.itunes_connect_api.itunes_subscriber_detailed_report_*` iss
+    LEFT JOIN
+    (
+    SELECT DISTINCT vendor_number, account_number
+    FROM `rockads-thirdparty.itunes.itunes_vendors`
+    ) vendors
+    ON iss.vendor_number = vendors.vendor_number
+    WHERE _TABLE_SUFFIX BETWEEN '${rockads_analytics_libs.formattedBQPeriodStartDateYYYYMMDD}'
+      AND '${rockads_analytics_libs.formattedDate1DayAgoYYYYMMDD}'
+          AND vendors.vendor_number IN (
+            # kompanion
+            '87864986') AND CAST(customer_price AS FLOAT64) != 0 AND TRIM(subscriber_id) != ""
+    AND subscription_offer_type != "Free Trial"
+)
+
+UNION ALL
+
+SELECT
+      order_charged_date AS event_date,
+      bucket_name AS account_number,
+      'Android' AS platform,
+      country_of_buyer AS country,
+      LEFT(order_number, 24) AS subscriber_id,
+      product_id AS app_id,
+      sku_id AS package_id,
+      CAST(charged_amount AS FLOAT64) AS customer_price,
+      CAST(charged_amount AS FLOAT64) * 0.6837 AS developer_proceeds,
+      currency_of_sale AS customer_currency,
+      financial_status AS refund
+FROM `${dataform.projectConfig.vars.rockadsProject}.googlePlay.googlePlay_sales_*`
+WHERE _TABLE_SUFFIX BETWEEN FORMAT_DATE("%Y%m%d", DATE_TRUNC('${rockads_analytics_libs.formattedBQPeriodStartDateBqDate}', MONTH))
+AND FORMAT_DATE("%Y%m%d", DATE_TRUNC('${rockads_analytics_libs.formattedDate1DayAgoBqDate}', MONTH))
+AND order_charged_date >= '${rockads_analytics_libs.formattedBQPeriodStartDateBqDate}' AND order_charged_date < '${rockads_analytics_libs.currentDate}'
+AND bucket_name IN ${rockads_analytics_libs.bucketNamesSqlInClause}
+
+UNION ALL
+
+SELECT
+      DATE(eventDate) AS event_date,
+      teamName AS account_number,
+      "Web" AS platform,
+      UPPER(country) AS country,
+      subscriberId AS subscriber_id,
+      appName AS app_id,
+      packageId AS package_id,
+      amount/100 AS customer_price,
+      amount/100 AS developer_proceeds,
+      currency AS customer_currency,
+      "Charged" AS refund
+FROM `${dataform.projectConfig.vars.zotloProject}.zotlo_events.purchase_*`
+WHERE   _TABLE_SUFFIX BETWEEN '${rockads_analytics_libs.formattedBQPeriodStartDateYYYYMMDD}'
+  AND '${rockads_analytics_libs.formattedDate1DayAgoYYYYMMDD}'
+AND ${rockads_analytics_libs.team_names_condition}
+AND eventStatus = "success" AND amount > 0
+
+UNION ALL
+
+SELECT
+      DATE(eventDate) AS event_date,
+      teamName AS account_number,
+      "Web" AS platform,
+      UPPER(country) AS country,
+      subscriberId AS subscriber_id,
+      appName AS app_id,
+      packageId AS package_id,
+      (amount/100) * (-1) AS customer_price,
+      (amount/100) * (-1) AS developer_proceeds,
+      currency AS customer_currency,
+      "Refund" AS refund
+FROM `${dataform.projectConfig.vars.zotloProject}.zotlo_events.refund_*`
+WHERE   _TABLE_SUFFIX BETWEEN '${rockads_analytics_libs.formattedBQPeriodStartDateYYYYMMDD}'
+  AND '${rockads_analytics_libs.formattedDate1DayAgoYYYYMMDD}'
+AND ${rockads_analytics_libs.team_names_condition}
+AND eventStatus = "success" AND amount > 0
+
+UNION ALL
+
+SELECT
+      DATE(TIMESTAMP_SECONDS(sc.created)) AS event_date,
+      "DGT Yazılım" AS account_number,
+      "Stripe" AS platform,
+      JSON_EXTRACT_SCALAR(cus.address, '$.country') AS country,
+      sc.customer AS subscriber_id,
+      sc.app_id,
+      IFNULL(IFNULL(IFNULL(sinv.package_id, sc.calculated_statement_descriptor), sc.statement_descriptor), sc.description) AS package_id,
+      sbt.amount/100 AS customer_price,
+      sbt.net/100 AS developer_proceeds,
+      UPPER(sbt.currency) AS customer_currency,
+      "Charged" AS refund
+FROM stripe_charges sc
+LEFT JOIN stripe_customers cus ON sc.customer = cus.id AND sc.app_id = cus.app_id
+LEFT JOIN stripe_invoices sinv ON sc.invoice = sinv.id AND sc.app_id = sinv.app_id
+LEFT JOIN stripe_balance_transactions sbt ON  sc.balance_transaction = sbt.id AND sc.app_id = sbt.app_id
+
+UNION ALL
+
+SELECT
+      DATE(TIMESTAMP_SECONDS(sr.refund_created)) AS event_date,
+      "DGT Yazılım" AS account_number,
+      "Stripe" AS platform,
+      JSON_EXTRACT_SCALAR(cus.address, '$.country') AS country,
+      sr.customer AS subscriber_id,
+      sr.app_id,
+      IFNULL(IFNULL(IFNULL(sinv.package_id, sr.calculated_statement_descriptor), sr.statement_descriptor), sr.description) AS package_id,
+      sbt.amount/100 AS customer_price,
+      sbt.net/100 AS developer_proceeds,
+      UPPER(sbt.currency) AS customer_currency,
+      "Refund" AS refund
+FROM stripe_refunds sr
+LEFT JOIN stripe_customers cus ON sr.customer = cus.id AND sr.app_id = cus.app_id
+LEFT JOIN stripe_invoices sinv ON sr.invoice = sinv.id AND sr.app_id = sinv.app_id
+LEFT JOIN stripe_balance_transactions sbt ON  sr.refund_balance_transaction = sbt.id AND sr.app_id = sbt.app_id

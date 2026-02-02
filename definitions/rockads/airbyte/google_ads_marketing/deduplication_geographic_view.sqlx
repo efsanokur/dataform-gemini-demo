@@ -1,0 +1,45 @@
+  config { type: "operations",
+  database: `${dataform.projectConfig.vars.rockadsProject}`,
+  name: "deduplication_geographic_view",
+  dependencies: ["conversion_metrics"],
+  tags: ["google_ads_marketing"] }
+
+-- with campaign
+
+CREATE OR REPLACE TABLE `rockads-thirdparty.googleAds_airbyte.custom_campaign_geographic_view_tmp` AS
+SELECT *
+FROM `rockads-thirdparty.googleAds_airbyte._all_apps_custom_campaign_geographic_view`
+WHERE DATE(_airbyte_extracted_at) = CURRENT_DATE()
+QUALIFY DENSE_RANK() OVER (
+    ORDER BY _airbyte_generation_id desc
+) = 1;
+
+DELETE
+FROM `rockads-thirdparty.googleAds_airbyte._all_apps_custom_campaign_geographic_view`
+WHERE DATE(_airbyte_extracted_at) = CURRENT_DATE();
+
+INSERT INTO `rockads-thirdparty.googleAds_airbyte._all_apps_custom_campaign_geographic_view`
+SELECT *
+FROM `rockads-thirdparty.googleAds_airbyte.custom_campaign_geographic_view_tmp`;
+
+-- without campaign
+
+CREATE OR REPLACE TABLE `rockads-thirdparty.googleAds_airbyte.custom_geographic_view_tmp` AS
+SELECT *
+FROM `rockads-thirdparty.googleAds_airbyte._all_apps_custom_geographic_view`
+WHERE DATE(_airbyte_extracted_at) = CURRENT_DATE()
+QUALIFY DENSE_RANK() OVER (
+    ORDER BY _airbyte_generation_id desc
+) = 1;
+
+DELETE
+FROM `rockads-thirdparty.googleAds_airbyte._all_apps_custom_geographic_view`
+WHERE DATE(_airbyte_extracted_at) = CURRENT_DATE();
+
+INSERT INTO `rockads-thirdparty.googleAds_airbyte._all_apps_custom_geographic_view`
+SELECT *
+FROM `rockads-thirdparty.googleAds_airbyte.custom_geographic_view_tmp`;
+
+
+
+

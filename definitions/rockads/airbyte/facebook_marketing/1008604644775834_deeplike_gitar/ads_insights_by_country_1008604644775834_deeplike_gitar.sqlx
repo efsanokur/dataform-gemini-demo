@@ -1,0 +1,165 @@
+config {
+  type: "table",
+  bigquery: {
+    partitionBy: "ad_insight_date_start",
+    clusterBy: ["country"]
+  },
+  database: `${dataform.projectConfig.vars.rockadsProject}`,
+  name: "ads_insights_by_country_1008604644775834_deeplike_gitar",
+  schema: "fb_airbyte_datamarts",
+  tags: ['facebook_airbyte_1008604644775834_deeplike_gitar']
+}
+
+WITH clean_campaigns AS (
+  SELECT
+    id AS campaign_id,
+    name AS campaign_name,
+    objective,
+    start_time,
+    stop_time
+  FROM `${dataform.projectConfig.vars.rockadsProject}.fb_airbyte._1008604644775834_deeplike_gitar_campaigns`
+),
+
+clean_ad_sets AS (
+  SELECT
+    id AS adset_id,
+    start_time,
+    end_time,
+    name AS adset_name,
+    campaign_id,
+    effective_status,
+    bid_strategy,
+    daily_budget,
+    bid_amount
+  FROM `${dataform.projectConfig.vars.rockadsProject}.fb_airbyte._1008604644775834_deeplike_gitar_ad_sets`
+),
+
+clean_ads AS (
+  SELECT
+    id AS ad_id,
+    campaign_id,
+    adset_id,
+    status,
+    last_updated_by_app_id,
+    name AS ad_name,
+    created_time
+  FROM `${dataform.projectConfig.vars.rockadsProject}.fb_airbyte._1008604644775834_deeplike_gitar_ads`
+),
+
+clean_ads_insights AS (
+  SELECT
+    ad_id,
+    campaign_name,
+    ad_name,
+    adset_name,
+    account_id,
+    account_name,
+    country,
+    objective,
+    account_currency,
+    created_time,
+    date_start,
+    spend AS insights_spend,
+    impressions AS insights_impressions,
+    clicks AS insights_clicks,
+    ctr AS insights_ctr,
+    cpc AS insights_cpc,
+    cpm AS insights_cpm,
+    cpp AS insights_cpp,
+    unique_clicks,
+    conversions,
+    cost_per_conversion,
+    purchase_roas,
+    website_purchase_roas,
+    outbound_clicks,
+    inline_post_engagement,
+    cost_per_action_type,
+    quality_ranking,
+    engagement_rate_ranking,
+    conversion_rate_ranking,
+    action_values,
+    cost_per_ad_click,
+    inline_link_clicks,
+    cost_per_unique_click,
+    full_view_impressions,
+    website_ctr,
+    video_play_actions,
+    inline_link_click_ctr,
+    cost_per_unique_action_type,
+    auction_competitiveness,
+    estimated_ad_recallers,
+    unique_inline_link_clicks,
+    video_time_watched_actions,
+    cost_per_inline_link_click,
+    cost_per_unique_inline_link_click,
+    video_avg_time_watched_actions,
+    cost_per_estimated_ad_recallers,
+    cost_per_inline_post_engagement,
+    instant_experience_clicks_to_open,
+    instant_experience_outbound_clicks,
+      (
+        SELECT SUM(CAST(JSON_EXTRACT_SCALAR(x, '$.value') AS INT64))
+        FROM UNNEST(JSON_EXTRACT_ARRAY(video_p25_watched_actions)) AS x
+        WHERE JSON_EXTRACT_SCALAR(x, '$.action_type') = 'video_view'
+      ) AS total_video_p25_watched,
+      (
+      SELECT SUM(CAST(JSON_VALUE(click, '$.value') AS INT64))
+      FROM UNNEST(JSON_EXTRACT_ARRAY(outbound_clicks)) AS click
+      WHERE JSON_VALUE(click, '$.value') IS NOT NULL
+    ) AS total_outbound_clicks
+  FROM `${dataform.projectConfig.vars.rockadsProject}.fb_airbyte._1008604644775834_deeplike_gitar_ads_insights_country`
+  --WHERE spend > 0 -- Filter out insights data with no spend
+)
+
+SELECT
+  i.ad_id,
+  i.created_time as ad_insight_created_time,
+  i.date_start as ad_insight_date_start,
+  i.account_id,
+  i.account_name,
+  i.account_currency,
+  i.country,
+  i.objective,
+  IFNULL(a.ad_name, i.ad_name) as ad_name,
+  a.last_updated_by_app_id,
+  a.status as ad_status,
+  IFNULL(sa.adset_name, i.adset_name) as adset_name,
+  sa.effective_status as adset_effective_status,
+  sa.bid_strategy as adset_bid_strategy,
+  sa.daily_budget as adset_daily_budget,
+  sa.start_time as adset_start_time,
+  sa.end_time as adset_end_time,
+  ca.campaign_id,
+  IFNULL(ca.campaign_name, i.campaign_name) as campaign_name,
+  ca.start_time as campaign_start_time,
+  ca.stop_time as campaign_stop_time,
+  COALESCE(i.insights_spend, 0) AS total_spend,
+  COALESCE(i.insights_impressions, 0) AS total_impressions,
+  COALESCE(i.insights_clicks, 0) AS total_clicks,
+  COALESCE(i.insights_ctr, 0) AS ctr,
+  COALESCE(i.insights_cpc, 0) AS cpc,
+  COALESCE(i.insights_cpm, 0) AS cpm,
+  COALESCE(i.insights_cpp, 0) AS cpp,
+  COALESCE(i.unique_clicks, 0) AS unique_clicks,
+  COALESCE(i.inline_post_engagement, 0) AS inline_post_engagement,
+  COALESCE(i.quality_ranking, 'N/A') AS quality_ranking,
+  COALESCE(i.engagement_rate_ranking, 'N/A') AS engagement_rate_ranking,
+  COALESCE(i.conversion_rate_ranking, 'N/A') AS conversion_rate_ranking,
+  COALESCE(i.inline_link_clicks, 0) AS inline_link_clicks,
+  COALESCE(i.cost_per_unique_click, 0) AS cost_per_unique_click,
+  COALESCE(i.full_view_impressions, 0) AS full_view_impressions,
+  COALESCE(i.inline_link_click_ctr, 0) AS inline_link_click_ctr,
+  COALESCE(i.auction_competitiveness, 0) AS auction_competitiveness,
+  COALESCE(i.estimated_ad_recallers, 0) AS estimated_ad_recallers,
+  COALESCE(i.unique_inline_link_clicks, 0) AS unique_inline_link_clicks,
+  COALESCE(i.cost_per_inline_link_click, 0) AS cost_per_inline_link_click,
+  COALESCE(i.cost_per_unique_inline_link_click, 0) AS cost_per_unique_inline_link_click,
+  COALESCE(i.cost_per_estimated_ad_recallers, 0) AS cost_per_estimated_ad_recallers,
+  COALESCE(i.cost_per_inline_post_engagement, 0) AS cost_per_inline_post_engagement,
+  COALESCE(i.instant_experience_clicks_to_open, 0) AS instant_experience_clicks_to_open,
+  COALESCE(i.total_video_p25_watched, 0) AS total_video_p25_watched,
+  COALESCE(i.total_outbound_clicks, 0) AS total_outbound_clicks,
+FROM clean_ads_insights i
+LEFT JOIN clean_ads a ON i.ad_id = a.ad_id
+LEFT JOIN clean_campaigns ca ON a.campaign_id = ca.campaign_id
+LEFT JOIN clean_ad_sets sa ON a.adset_id = sa.adset_id

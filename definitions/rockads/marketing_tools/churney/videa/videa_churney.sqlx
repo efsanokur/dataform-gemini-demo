@@ -1,0 +1,171 @@
+config {
+  type: "incremental",
+  database: `${dataform.projectConfig.vars.rockadsProject}`,
+  name: "videa_churney_appsflyer_in_app_events",
+  schema: "churney",
+  tags: ['churney_appsflyer']
+}
+WITH
+  ios_in_apps AS (
+  SELECT
+    event_time,
+    install_time,
+    attributed_touch_time,
+    'id6738990592' AS appsflyer_app_id,
+    customer_user_id AS user_id,
+    appsflyer_id,
+    media_source,
+    af_c_id AS campaign_id,
+    af_ad_id AS ad_id,
+    af_adset as adset,
+    campaign as campaign,
+    af_ad as ad,
+    country_code as geo,
+    'ios' AS platform,
+    '6393B72DF43E4B8AB12BD67CBB89AE98' AS firebase_app_instance_id,
+    event_name,
+    event_revenue_currency AS currency,
+    cast(event_revenue as FLOAT64) AS revenue
+  FROM
+    `rockads-thirdparty.appsflyer.id6738990592_in_app_events`
+  WHERE
+    DATE(event_time) >= DATE_SUB(CURRENT_DATE('UTC'), INTERVAL 2 DAY)
+  UNION ALL
+  SELECT
+    event_time,
+    install_time,
+    SAFE.PARSE_TIMESTAMP('%Y-%m-%d %H:%M:%S', attributed_touch_time)  AS attributed_touch_time,
+    'id6738990592' AS appsflyer_app_id,
+    customer_user_id AS user_id,
+    appsflyer_id,
+    media_source,
+    campaign_id AS campaign_id,
+    null AS ad_id,
+    af_adset as adset,
+    campaign as campaign,
+    af_ad as ad,
+    country_code as geo,
+    'ios' AS platform,
+    '6393B72DF43E4B8AB12BD67CBB89AE98' AS firebase_app_instance_id,
+    event_name,
+    event_revenue_currency AS currency,
+    SAFE_CAST(NULLIF(event_revenue, '') AS FLOAT64) AS event_revenue,
+  FROM
+    `rockads-thirdparty.appsflyer_airflow.id6738990592_in_app_events`
+  WHERE
+    DATE(event_time) >= DATE_SUB(CURRENT_DATE('UTC'), INTERVAL 2 DAY)
+
+   UNION ALL
+   SELECT
+    event_time,
+    install_time,
+    NULL AS attributed_touch_time,
+    'id6738990592' AS appsflyer_app_id,
+    customer_user_id AS user_id,
+    appsflyer_id,
+    'ORGANIC' AS media_source,
+    'ORGANIC' AS campaign_id,
+    'ORGANIC' AS ad_id,
+    'ORGANIC' as adset,
+    'ORGANIC' as campaign,
+    'ORGANIC' as ad,
+    country_code as geo,
+    'ios' AS platform,
+    '6393B72DF43E4B8AB12BD67CBB89AE98' AS firebase_app_instance_id,
+    event_name,
+    'USD' AS currency,
+    cast(event_revenue as FLOAT64) AS revenue
+  FROM
+    `rockads-thirdparty.appsflyer.id6738990592_organic_in_app_events`
+  WHERE
+    DATE(event_time) >= DATE_SUB(CURRENT_DATE('UTC'), INTERVAL 2 DAY)
+
+   ),
+  android_in_apps AS (
+  SELECT
+    event_time,
+    install_time,
+    attributed_touch_time,
+    'com.videoai.effects' AS appsflyer_app_id,
+    customer_user_id AS user_id,
+    appsflyer_id,
+    media_source,
+    af_c_id AS campaign_id,
+    af_ad_id AS ad_id,
+    af_adset as adset,
+    campaign as campaign,
+    af_ad as ad,
+    country_code as geo,
+    'anrdoid' AS platform,
+    'd001b66e3e6d99c1766160d3cf663899' AS firebase_app_instance_id,
+    event_name,
+    event_revenue_currency AS currency,
+    cast(event_revenue as FLOAT64) AS revenue
+  FROM
+    `rockads-thirdparty.appsflyer.com_videoai_effects_in_app_events`
+  WHERE
+    DATE(event_time) >= DATE_SUB(CURRENT_DATE('UTC'), INTERVAL 2 DAY)
+
+  UNION ALL
+  SELECT
+    event_time,
+    install_time,
+    SAFE.PARSE_TIMESTAMP('%Y-%m-%d %H:%M:%S', attributed_touch_time)  AS attributed_touch_time,
+    'com.videoai.effects' AS appsflyer_app_id,
+    customer_user_id AS user_id,
+    appsflyer_id,
+    media_source,
+    campaign_id AS campaign_id,
+    af_ad_id AS ad_id,
+    af_adset as adset,
+    campaign as campaign,
+    af_ad as ad,
+    country_code as geo,
+    'anrdoid' AS platform,
+    'd001b66e3e6d99c1766160d3cf663899' AS firebase_app_instance_id,
+    event_name,
+    event_revenue_currency AS currency,
+    SAFE_CAST(NULLIF(event_revenue, '') AS FLOAT64) AS event_revenue,
+  FROM `rockads-thirdparty.appsflyer_airflow.com_videoai_effects_in_app_events`
+  WHERE DATE(event_time) >= DATE_SUB(CURRENT_DATE('UTC'), INTERVAL 2 DAY)
+
+  UNION ALL
+  SELECT
+    event_time,
+    install_time,
+    NULL AS attributed_touch_time,
+    'com.videoai.effects' AS appsflyer_app_id,
+    customer_user_id AS user_id,
+    appsflyer_id,
+    'ORGANIC' AS media_source,
+    'ORGANIC' AS campaign_id,
+    'ORGANIC' AS ad_id,
+    'ORGANIC' as adset,
+    'ORGANIC' as campaign,
+    'ORGANIC' as ad,
+    country_code as geo,
+    'anrdoid' AS platform,
+    'd001b66e3e6d99c1766160d3cf663899' AS firebase_app_instance_id,
+    event_name,
+    'USD' AS currency,
+    cast(event_revenue as FLOAT64) AS revenue
+  FROM
+    `rockads-thirdparty.appsflyer.com_videoai_effects_organic_in_app_events`
+  WHERE
+    DATE(event_time) >= DATE_SUB(CURRENT_DATE('UTC'), INTERVAL 2 DAY)
+
+    )
+SELECT
+  *,
+  TIMESTAMP(CURRENT_DATETIME('UTC')) AS _inserted_at
+FROM (
+  SELECT
+    *
+  FROM
+    ios_in_apps
+  UNION ALL
+  SELECT
+    *
+  FROM
+    android_in_apps
+ )

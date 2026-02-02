@@ -1,0 +1,134 @@
+config {
+    type: "incremental",
+    name: "esim_all_purchase_count_daily",
+    tags: ['id6473276045_zotlo_daily'],
+    schema: "id6473276045_appsflyer_ds",
+    bigquery: {
+        partitionBy: "date"
+    },
+    database: `${dataform.projectConfig.vars.rockadsProject}`,
+    dependencies: ['esim_all_users_original_event_dates'],
+    description: "The SQL query aggregates and summarizes eSIM purchase events from the zotlo_events.purchase_2* dataset, gathering the original event date information from the esim_users_original_event_dates table, joining country details from the etl_modules.countries table for both user and card-related country information. It filters events for the previous day, groups the data by various attributes, and calculates metrics such as unique user count, total event count, total amount, total USD amount, and quantity.",
+}
+
+WITH
+  original_event_dates AS (
+  SELECT
+    *
+  FROM
+    `${dataform.projectConfig.vars.rockadsProject}.id6473276045_appsflyer_ds.esim_all_users_original_event_dates` )
+SELECT
+  DATE(eventDate) AS date,
+  DATE(original_event_dates.original_event_date) AS original_event_date,
+  eventType AS event_type,
+  eventStatus AS status,
+  appName AS app_name,
+  appId AS app_id,
+  country,
+  c.name AS country_name,
+  teamId AS team_id,
+  teamName AS team_name,
+  providerName AS provider,
+  providerKey AS provider_key,
+  firstPayment AS first_payment,
+  isRenewal AS is_renewal,
+  is3ds,
+  packageName AS package_name,
+  pur.currency,
+  exchangeRate AS exchange_rate,
+  transactionType AS transaction_type,
+  paymentMethod AS payment_method,
+  cardCountry AS card_country,
+  c2.name AS card_country_name,
+  cardBrand AS card_brand,
+  cardBank AS card_bank,
+  bank,
+  apmPaymentMethod AS apm_payment_method,
+  statusCode AS status_code,
+  original_event_dates.platform as platform,
+  paymentType AS payment_type,
+  providerErrorCode AS provider_error_code,
+  thirdPlatform AS third_platform,
+  paymentCount AS payment_count,
+  utmSource AS utm_source,
+  utmCampaign AS utm_campaign,
+  utmTerm AS utm_term,
+  utmContent AS utm_content,
+  utmMedium AS utm_medium,
+  COUNT(DISTINCT pur.subscriberId) AS unique_user_count,
+  COUNT(*) AS event_count,
+  SUM(amount/100.0) AS total_amount,
+  SUM (SAFE_DIVIDE(usdAmount, 100) ) AS total_amount_usd,
+  SUM(quantity) AS quantity,
+  1/cur.rate AS exchange_rate_usd
+FROM
+  `${dataform.projectConfig.vars.zotloProject}.zotlo_events.purchase_2*` pur
+LEFT JOIN
+  original_event_dates
+ON
+  pur.subscriberId = original_event_dates.subscriberId
+LEFT JOIN
+  `${dataform.projectConfig.vars.zotloProject}.etl_modules.countries` c
+ON
+  pur.country = c.short_code
+LEFT JOIN
+  `${dataform.projectConfig.vars.zotloProject}.etl_modules.countries` c2
+ON
+  pur.cardCountry = c2.short_code
+LEFT JOIN (
+  SELECT
+    currency_date,
+    currency_code,
+    unit,
+    AVG(rate) AS rate
+  FROM
+    `gtc-dataland.etl_modules.exchange_rates_usd_2*`
+  GROUP BY
+    1,
+    2,
+    3) cur
+ON
+  pur.currency = cur.currency_code
+  AND DATE(pur.eventDate) = DATE(cur.currency_date)
+WHERE
+  PARSE_DATE('%Y%m%d',CONCAT('2', pur._TABLE_SUFFIX)) = CURRENT_DATE() - 1
+  AND appName = "eSIM io"
+GROUP BY
+  1,
+  2,
+  3,
+  4,
+  5,
+  6,
+  7,
+  8,
+  9,
+  10,
+  11,
+  12,
+  13,
+  14,
+  15,
+  16,
+  17,
+  18,
+  19,
+  20,
+  21,
+  22,
+  23,
+  24,
+  25,
+  26,
+  27,
+  28,
+  29,
+  30,
+  31,
+  32,
+  33,
+  34,
+  35,
+  36,
+  37,
+  43

@@ -1,0 +1,49 @@
+config {
+  type: "table",
+  database: `${dataform.projectConfig.vars.rockadsProject}`,
+  name: "pltvs",
+  bigquery: {
+    partitionBy: "install_date",
+    clusterBy: ["media_source","operating_system"]
+  },
+  schema: "datacan_thirdparty_api_datamarts",
+  tags: ['datacan_marketing_pltv_daily']
+}
+
+# Videa
+WITH dt_pred as (
+SELECT * FROM (
+SELECT
+  install_date,
+  operating_system,
+  media_source,
+  campaign,
+  ad_name,
+  ad_set,
+  SUM(predicted_ltv) AS predicted_ltv_30,
+  SUM(total_cost) as total_cost,
+  _TABLE_SUFFIX AS table_suffix
+FROM
+  `rockads-thirdparty.appsflyer_ltv.predictions_ltv_30_*`
+GROUP BY
+  ALL
+)
+QUALIFY ROW_NUMBER() OVER(PARTITION by install_date, operating_system, media_source, campaign  order by table_suffix desc) = 1
+
+),
+real_ltv AS (
+  SELECT install_date,
+  operating_system,
+  media_source,
+  campaign,
+  ad_name,
+  ad_set,
+ sum(ltv_0) as sum_ltv_0, sum(total_revenue) as ltv, sum(user_count_0) as dt_user_count
+FROM `rockads-thirdparty.appsflyer_ltv.videa_ltv_prediction_daily_cohorts`
+group by ALL
+order by install_date desc )
+
+SELECT ap.*, 'Videa' as app_name, rltv.dt_user_count, rltv.sum_ltv_0, rltv.ltv FROM dt_pred ap
+LEFT JOIN real_ltv rltv on rltv.install_date=ap.install_date AND ap.operating_system=rltv.operating_system AND ap.media_source=rltv.media_source AND ap.campaign=rltv.campaign
+AND ap.ad_name=rltv.ad_name
+AND ap.ad_set=rltv.ad_set

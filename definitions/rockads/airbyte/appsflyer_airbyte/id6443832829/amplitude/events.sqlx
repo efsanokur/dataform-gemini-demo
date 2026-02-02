@@ -1,0 +1,30 @@
+config {
+  type: "table",
+    bigquery: {
+    partitionBy: "DATE(event_time)",
+    clusterBy: ["event_type", "user_id"]
+  },
+  database: `${dataform.projectConfig.vars.rockadsProject}`,
+  name: "amplitude_events",
+  schema: "lisa_amplitude_dm",
+  tags: ['marketing_amplitude_pipeline']
+}
+
+SELECT
+  t.*, cts.short_code as geo
+FROM (
+  SELECT
+    *,
+    ROW_NUMBER() OVER (PARTITION BY uuid ) rn
+  FROM
+    `${dataform.projectConfig.vars.rockadsProject}.lisa_amplitude_raw`.`EVENTS_430511`
+  WHERE
+    DATE(event_time) >= '2025-01-01' and DATE(event_time) <= CURRENT_DATE('UTC')) t
+
+LEFT JOIN (
+
+  SELECT name, short_code FROM `gtc-dataland.etl_modules.countries`
+
+) cts on t.country=cts.name
+WHERE
+  rn = 1

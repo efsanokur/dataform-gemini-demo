@@ -1,0 +1,105 @@
+config {
+  type: "table",
+    bigquery: {
+    partitionBy: "report_date"
+  },
+  database: `${dataform.projectConfig.vars.rockadsProject}`,
+  name: "teli_activity_combined_metrics_unique_dm",
+  schema: "teli_adjust_ds",
+  dependencies: ['teli_activity_revenues', 'teli_activity_event_counts_unique'],
+  tags: ['adjust_teli_main']
+}
+
+WITH
+  appsflyer_count AS (
+  SELECT
+  DISTINCT
+    event_date AS report_date,
+    'teli' AS app_id,
+    country_code AS geo,
+    campaign,
+    af_adset,
+    af_ad AS ad,
+    media_source,
+    adjust_os_id,
+      SUM(activity_revenue_trial_cancelled) as       activity_revenue_trial_cancelled,
+      SUM(activity_revenue_subscription_cancelled) as       activity_revenue_subscription_cancelled,
+      SUM(activity_revenue_trial_started) as       activity_revenue_trial_started,
+      SUM(activity_revenue_one_time_purchase) as       activity_revenue_one_time_purchase,
+      SUM(activity_revenue_subscription_renewed) as       activity_revenue_subscription_renewed,
+      SUM(activity_revenue_subscription_started) as       activity_revenue_subscription_started,
+      SUM(activity_revenue_subscription_expired) as       activity_revenue_subscription_expired,
+      SUM(activity_revenue_subscription_changed) as       activity_revenue_subscription_changed,
+
+      SUM(activity_event_count_trial_cancelled) AS              activity_event_count_trial_cancelled,
+      SUM(activity_event_count_subscription_cancelled) AS       activity_event_count_subscription_cancelled,
+      SUM(activity_event_count_trial_started) AS                activity_event_count_trial_started,
+      SUM(activity_event_count_one_time_purchase) AS            activity_event_count_one_time_purchase,
+      SUM(activity_event_count_subscription_renewed) AS         activity_event_count_subscription_renewed,
+      SUM(activity_event_count_subscription_started) AS         activity_event_count_subscription_started,
+      SUM(activity_event_count_subscription_expired) AS         activity_event_count_subscription_expired,
+      SUM(activity_event_count_subscription_changed) AS         activity_event_count_subscription_changed,
+
+  FROM
+    `${dataform.projectConfig.vars.rockadsProject}.teli_adjust_ds.teli_activity_event_counts_unique`
+  GROUP BY ALL
+),
+  revenues AS (
+  SELECT
+    DISTINCT
+    event_date AS report_date,
+    'teli' AS app_id,
+    country_code AS geo,
+    campaign,
+    af_adset,
+    af_ad AS ad,
+    media_source,
+    adjust_os_id,
+    SUM(activity_event_revenue) activity_event_revenue
+  FROM
+    `${dataform.projectConfig.vars.rockadsProject}.teli_adjust_ds.teli_activity_revenues`
+  GROUP BY ALL
+)
+
+SELECT
+  IFNULL(af_counts.report_date, rvns.report_date) AS report_date,
+  IFNULL(af_counts.app_id, rvns.app_id) AS app_id,
+  IFNULL(af_counts.geo, rvns.geo) AS geo,
+  IFNULL(af_counts.campaign, rvns.campaign) AS campaign,
+  IFNULL(af_counts.af_adset, rvns.af_adset) AS af_adset,
+  IFNULL(af_counts.ad, rvns.ad) AS ad,
+  IFNULL(af_counts.media_source, rvns.media_source) AS media_source,
+  IFNULL(af_counts.adjust_os_id, rvns.adjust_os_id) AS adjust_os_id,
+-- Total event revenues
+  IFNULL(af_counts.activity_revenue_trial_cancelled, 0) AS       activity_revenue_trial_cancelled,
+  IFNULL(af_counts.activity_revenue_subscription_cancelled, 0) AS       activity_revenue_subscription_cancelled,
+  IFNULL(af_counts.activity_revenue_trial_started, 0) AS       activity_revenue_trial_started,
+  IFNULL(af_counts.activity_revenue_one_time_purchase, 0) AS       activity_revenue_one_time_purchase,
+  IFNULL(af_counts.activity_revenue_subscription_renewed, 0) AS       activity_revenue_subscription_renewed,
+  IFNULL(af_counts.activity_revenue_subscription_started, 0) AS       activity_revenue_subscription_started,
+  IFNULL(af_counts.activity_revenue_subscription_expired, 0) AS       activity_revenue_subscription_expired,
+  IFNULL(af_counts.activity_revenue_subscription_changed, 0) AS       activity_revenue_subscription_changed,
+
+  IFNULL(af_counts.activity_event_count_trial_cancelled,0) AS              activity_trial_cancelled,
+  IFNULL(af_counts.activity_event_count_subscription_cancelled,0) AS       activity_subscription_cancelled,
+  IFNULL(af_counts.activity_event_count_trial_started,0) AS                activity_trial_started,
+  IFNULL(af_counts.activity_event_count_one_time_purchase,0) AS            activity_one_time_purchase,
+  IFNULL(af_counts.activity_event_count_subscription_renewed,0) AS         activity_subscription_renewed,
+  IFNULL(af_counts.activity_event_count_subscription_started,0) AS         activity_subscription_started,
+  IFNULL(af_counts.activity_event_count_subscription_expired,0) AS         activity_subscription_expired,
+  IFNULL(af_counts.activity_event_count_subscription_changed,0) AS         activity_subscription_changed,
+
+  IFNULL(rvns.activity_event_revenue, 0) AS activity_event_revenue,
+FROM
+  appsflyer_count af_counts
+FULL OUTER JOIN
+  revenues rvns
+ON
+  af_counts.report_date=rvns.report_date
+  AND af_counts.app_id=rvns.app_id
+  AND af_counts.geo=rvns.geo
+  AND af_counts.ad=rvns.ad
+  AND af_counts.media_source=rvns.media_source
+  AND af_counts.campaign=rvns.campaign
+  AND af_counts.af_adset=rvns.af_adset
+  AND af_counts.adjust_os_id=rvns.adjust_os_id

@@ -1,0 +1,194 @@
+config {
+  type: "table",
+    bigquery: {
+    partitionBy: "report_date"
+  },
+  database: `${dataform.projectConfig.vars.rockadsProject}`,
+  name: "id6736979983_platforms_merged_metrics_all_cost_geo_unique",
+  schema: "id6736979983_appsflyer_ds",
+  dependencies: ['id6736979983_combined_metrics_unique_dm'],
+  tags: ['appsflyer_id6736979983_main']
+}
+
+SELECT
+DISTINCT
+  IFNULL(metrics_dm.report_date, cost_dm.report_date) AS report_date,
+  IFNULL(metrics_dm.app_id, cost_dm.app_id) AS app_id,
+  IFNULL(metrics_dm.geo, cost_dm.geo) AS geo,
+  IFNULL(metrics_dm.campaign, cost_dm.campaign) AS campaign,
+  IFNULL(metrics_dm.adset, cost_dm.adset) AS adset,
+  IFNULL(metrics_dm.ad, cost_dm.ad) AS ad,
+  IFNULL(metrics_dm.media_source, cost_dm.media_source) AS media_source,
+  IFNULL(metrics_dm.appsflyer_os_id, cost_dm.appsflyer_os_id) AS appsflyer_os_id,
+  IFNULL(metrics_dm.rc_trial_converted_event, 0) AS rc_trial_converted_event,
+  IFNULL(metrics_dm.rc_renewal_event, 0) AS rc_renewal_event,
+  IFNULL(metrics_dm.rc_cancellation_event, 0) AS rc_cancellation_event,
+  IFNULL(metrics_dm.rc_trial_started_event, 0) AS rc_trial_started_event,
+  IFNULL(metrics_dm.rc_trial_cancelled_event, 0) AS rc_trial_cancelled_event,
+  IFNULL(metrics_dm.rc_initial_purchase_event, 0) AS rc_initial_purchase_event,
+  IFNULL(metrics_dm.rc_non_subscription_purchase_event, 0) AS rc_non_subscription_purchase_event,
+  IFNULL(metrics_dm.rc_expiration_event, 0) AS rc_expiration_event,
+  IFNULL(metrics_dm.rc_billing_issue_event, 0) AS rc_billing_issue_event,
+  IFNULL(metrics_dm.rc_product_change_event, 0) AS rc_product_change_event,
+  IFNULL(metrics_dm.af_purchase, 0) AS af_purchase,
+  IFNULL(metrics_dm.package_purchase, 0) AS package_purchase,
+  IFNULL(metrics_dm.subs_monthly_purchase, 0) AS subs_monthly_purchase,
+  IFNULL(metrics_dm.coin_480_purchase, 0) AS coin_480_purchase,
+  IFNULL(metrics_dm.coin_960_purchase, 0) AS coin_960_purchase,
+  IFNULL(metrics_dm.af_ad_revenue, 0) AS af_ad_revenue,
+  
+  -- Unique event counts 
+  IFNULL(metrics_dm.unique_rc_trial_converted_event, 0) AS unique_rc_trial_converted_event,
+  IFNULL(metrics_dm.unique_rc_renewal_event, 0) AS unique_rc_renewal_event,
+  IFNULL(metrics_dm.unique_rc_cancellation_event, 0) AS unique_rc_cancellation_event,
+  IFNULL(metrics_dm.unique_rc_trial_started_event, 0) AS unique_rc_trial_started_event,
+  IFNULL(metrics_dm.unique_rc_trial_cancelled_event, 0) AS unique_rc_trial_cancelled_event,
+  IFNULL(metrics_dm.unique_rc_initial_purchase_event, 0) AS unique_rc_initial_purchase_event,
+  IFNULL(metrics_dm.unique_rc_non_subscription_purchase_event, 0) AS unique_rc_non_subscription_purchase_event,
+  IFNULL(metrics_dm.unique_rc_expiration_event, 0) AS unique_rc_expiration_event,
+  IFNULL(metrics_dm.unique_rc_billing_issue_event, 0) AS unique_rc_billing_issue_event,
+  IFNULL(metrics_dm.unique_rc_product_change_event, 0) AS unique_rc_product_change_event,
+  IFNULL(metrics_dm.unique_af_purchase, 0) AS unique_af_purchase,
+  IFNULL(metrics_dm.unique_package_purchase, 0) AS unique_package_purchase,
+  IFNULL(metrics_dm.unique_subs_monthly_purchase, 0) AS unique_subs_monthly_purchase,
+  IFNULL(metrics_dm.unique_coin_480_purchase, 0) AS unique_coin_480_purchase,
+  IFNULL(metrics_dm.unique_coin_960_purchase, 0) AS unique_coin_960_purchase,
+  IFNULL(metrics_dm.unique_af_ad_revenue, 0) AS unique_af_ad_revenue,
+
+  -- Revenues
+  IFNULL(metrics_dm.revenue_rc_trial_converted_event, 0) AS revenue_rc_trial_converted_event,
+  IFNULL(metrics_dm.revenue_rc_renewal_event, 0) AS revenue_rc_renewal_event,
+  IFNULL(metrics_dm.revenue_rc_cancellation_event, 0) AS revenue_rc_cancellation_event,
+  IFNULL(metrics_dm.revenue_rc_trial_started_event, 0) AS revenue_rc_trial_started_event,
+  IFNULL(metrics_dm.revenue_rc_trial_cancelled_event, 0) AS revenue_rc_trial_cancelled_event,
+  IFNULL(metrics_dm.revenue_rc_initial_purchase_event, 0) AS revenue_rc_initial_purchase_event,
+  IFNULL(metrics_dm.revenue_rc_non_subscription_purchase_event, 0) AS revenue_rc_non_subscription_purchase_event,
+  IFNULL(metrics_dm.revenue_rc_expiration_event, 0) AS revenue_rc_expiration_event,
+  IFNULL(metrics_dm.revenue_rc_billing_issue_event, 0) AS revenue_rc_billing_issue_event,
+  IFNULL(metrics_dm.revenue_rc_product_change_event, 0) AS revenue_rc_product_change_event,
+  IFNULL(metrics_dm.revenue_af_purchase, 0) AS revenue_af_purchase,
+  IFNULL(metrics_dm.revenue_package_purchase, 0) AS revenue_package_purchase,
+  IFNULL(metrics_dm.revenue_subs_monthly_purchase, 0) AS revenue_subs_monthly_purchase,
+  IFNULL(metrics_dm.revenue_coin_480_purchase, 0) AS revenue_coin_480_purchase,
+  IFNULL(metrics_dm.revenue_coin_960_purchase, 0) AS revenue_coin_960_purchase,
+  IFNULL(metrics_dm.revenue_af_ad_revenue, 0) AS revenue_af_ad_revenue,
+
+  IFNULL(metrics_dm.event_revenue, 0) AS event_revenue,
+  IFNULL(cost_dm.total_cost, 0) AS total_cost,
+  IFNULL(cost_dm.total_clicks, 0) AS total_clicks,
+  IFNULL(cost_dm.total_installs, 0) AS total_installs,
+
+
+  IFNULL(cost_dm.total_impressions, 0) AS total_impressions,
+  IFNULL(cost_dm.total_re_attributions, 0) AS total_re_attributions,
+  IFNULL(cost_dm.total_re_engagements, 0) AS total_re_engagements,
+  IFNULL(cost_dm.total_video_completions, 0) AS total_video_completions,
+  IFNULL(cost_dm.total_video_25p_views, 0) AS total_video_25p_views,
+  IFNULL(cost_dm.total_video_50p_views, 0) AS total_video_50p_views,
+  IFNULL(cost_dm.total_video_75p_views, 0) AS total_video_75p_views,
+  IFNULL(cost_dm.fb_total_outbound_clicks, 0) AS fb_total_outbound_clicks,
+  IFNULL(cost_dm.fb_total_impressions, 0) AS fb_total_impressions,
+  IFNULL(cost_dm.fb_total_impressions, 0) AS fb_total_clicks,
+FROM
+  `${dataform.projectConfig.vars.rockadsProject}.id6736979983_appsflyer_ds.id6736979983_combined_metrics_unique_dm` metrics_dm
+FULL OUTER JOIN (
+  SELECT
+    * EXCEPT(appsflyer_os_id),
+    CASE
+      WHEN LOWER(campaign) LIKE '%webpayment%'
+           AND (appsflyer_os_id IS NULL
+                OR appsflyer_os_id IN ('com.shorten', 'com_shorten'))
+        THEN 'id6736979983'
+      ELSE appsflyer_os_id
+    END AS appsflyer_os_id
+  FROM `${dataform.projectConfig.vars.rockadsProject}.id6736979983_appsflyer_ds.id6736979983_platforms_merged_all_cost_geo`
+) cost_dm
+ON
+  metrics_dm.report_date=cost_dm.report_date
+  AND metrics_dm.app_id=cost_dm.app_id
+  AND metrics_dm.geo=cost_dm.geo
+  AND metrics_dm.ad=cost_dm.ad
+  AND metrics_dm.media_source=cost_dm.media_source
+  AND metrics_dm.campaign=cost_dm.campaign
+  AND metrics_dm.adset=cost_dm.adset
+  AND metrics_dm.appsflyer_os_id = cost_dm.appsflyer_os_id
+QUALIFY ROW_NUMBER() OVER (
+  PARTITION BY
+    report_date,
+    app_id,
+    geo,
+    campaign,
+    adset,
+    ad,
+    media_source,
+    -- Events
+    CAST(rc_trial_converted_event AS STRING),
+    CAST(rc_renewal_event AS STRING),
+    CAST(rc_cancellation_event AS STRING),
+    CAST(rc_trial_started_event AS STRING),
+    CAST(rc_trial_cancelled_event AS STRING),
+    CAST(rc_initial_purchase_event AS STRING),
+    CAST(rc_non_subscription_purchase_event AS STRING),
+    CAST(rc_expiration_event AS STRING),
+    CAST(rc_billing_issue_event AS STRING),
+    CAST(rc_product_change_event AS STRING),
+    CAST(af_purchase AS STRING),
+    CAST(package_purchase AS STRING),
+    CAST(subs_monthly_purchase AS STRING),
+    CAST(coin_480_purchase AS STRING),
+    CAST(coin_960_purchase AS STRING),
+    CAST(af_ad_revenue AS STRING),
+
+    -- Unique Events
+    CAST(unique_rc_trial_converted_event AS STRING),
+    CAST(unique_rc_renewal_event AS STRING),
+    CAST(unique_rc_cancellation_event AS STRING),
+    CAST(unique_rc_trial_started_event AS STRING),
+    CAST(unique_rc_trial_cancelled_event AS STRING),
+    CAST(unique_rc_initial_purchase_event AS STRING),
+    CAST(unique_rc_non_subscription_purchase_event AS STRING),
+    CAST(unique_rc_expiration_event AS STRING),
+    CAST(unique_rc_billing_issue_event AS STRING),
+    CAST(unique_rc_product_change_event AS STRING),
+    CAST(unique_af_purchase AS STRING),
+    CAST(unique_package_purchase AS STRING),
+    CAST(unique_subs_monthly_purchase AS STRING),
+    CAST(unique_coin_480_purchase AS STRING),
+    CAST(unique_coin_960_purchase AS STRING),
+    CAST(unique_af_ad_revenue AS STRING),
+
+    -- Revenue Events
+    CAST(revenue_rc_trial_converted_event AS STRING),
+    CAST(revenue_rc_renewal_event AS STRING),
+    CAST(revenue_rc_cancellation_event AS STRING),
+    CAST(revenue_rc_trial_started_event AS STRING),
+    CAST(revenue_rc_trial_cancelled_event AS STRING),
+    CAST(revenue_rc_initial_purchase_event AS STRING),
+    CAST(revenue_rc_non_subscription_purchase_event AS STRING),
+    CAST(revenue_rc_expiration_event AS STRING),
+    CAST(revenue_rc_billing_issue_event AS STRING),
+    CAST(revenue_rc_product_change_event AS STRING),
+    CAST(revenue_af_purchase AS STRING),
+    CAST(revenue_package_purchase AS STRING),
+    CAST(revenue_subs_monthly_purchase AS STRING),
+    CAST(revenue_coin_480_purchase AS STRING),
+    CAST(revenue_coin_960_purchase AS STRING),
+    CAST(revenue_af_ad_revenue AS STRING),
+
+    -- Aggregates / Cost / Ad Metrics
+    CAST(event_revenue AS STRING),
+    CAST(total_cost AS STRING),
+    CAST(total_clicks AS STRING),
+    CAST(total_installs AS STRING),
+    CAST(total_impressions AS STRING),
+    CAST(total_re_attributions AS STRING),
+    CAST(total_re_engagements AS STRING),
+    CAST(total_video_completions AS STRING),
+    CAST(total_video_25p_views AS STRING),
+    CAST(total_video_50p_views AS STRING),
+    CAST(total_video_75p_views AS STRING),
+    CAST(fb_total_outbound_clicks AS STRING),
+    CAST(fb_total_impressions AS STRING),
+    CAST(fb_total_clicks AS STRING)
+  ORDER BY appsflyer_os_id DESC, event_revenue DESC
+) = 1

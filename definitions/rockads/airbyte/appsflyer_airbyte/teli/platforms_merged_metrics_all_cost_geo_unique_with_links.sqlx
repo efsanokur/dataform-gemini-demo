@@ -1,0 +1,283 @@
+config {
+  type: "table",
+    bigquery: {
+    partitionBy: "report_date"
+  },
+  database: `${dataform.projectConfig.vars.rockadsProject}`,
+  name: "teli_platforms_merged_metrics_all_cost_geo_unique_with_links",
+  schema: "teli_adjust_ds",
+  dependencies: ['teli_tiktok_links_urls', 'teli_activity_union'],
+  tags: ['adjust_teli_main']
+}
+
+WITH raw_main_data as (
+SELECT
+non_rltv.*,
+-- normal D-columns from rltv
+rltv.d0 as d0,
+rltv.d1 as d1,
+rltv.d3 as d3,
+rltv.d7 as d7,
+rltv.d15 as d15,
+rltv.d30 as d30,
+rltv.d60 AS d60,
+rltv.d90 AS d90,
+rltv.d120 AS d120,
+rltv.d150 AS d150,
+rltv.d180 AS d180,
+rltv.d210 AS d210,
+rltv.d240 AS d240,
+rltv.d270 AS d270,
+rltv.d300 AS d300,
+rltv.d330 AS d330,
+rltv.d360 AS d360,
+rltv.ltv as ltv,
+
+FROM (
+
+SELECT
+    IFNULL(ltv.report_date, activity.report_date) AS report_date,
+    'teli' as app_id,
+    IFNULL(ltv.geo, activity.geo) as geo,
+    IFNULL(ltv.campaign, activity.campaign) as campaign,
+    IFNULL(ltv.adset, activity.af_adset) as adset,
+    IFNULL(ltv.ad, activity.ad) as ad,
+    IFNULL(ltv.media_source, activity.media_source) as media_source,
+    IFNULL(ltv.adjust_os_id, activity.adjust_os_id) as adjust_os_id,
+    trial_cancelled,
+    subscription_cancelled,
+    trial_started,
+    one_time_purchase,
+    subscription_renewed,
+    subscription_started,
+    subscription_expired,
+    subscription_changed,
+
+    unique_trial_cancelled,
+    unique_subscription_cancelled,
+    unique_trial_started,
+    unique_one_time_purchase,
+    unique_subscription_renewed,
+    unique_subscription_started,
+    unique_subscription_expired,
+    unique_subscription_changed,
+
+    revenue_trial_cancelled,
+    revenue_subscription_cancelled,
+    revenue_trial_started,
+    revenue_one_time_purchase,
+    revenue_subscription_renewed,
+    revenue_subscription_started,
+    revenue_subscription_expired,
+    revenue_subscription_changed,
+
+    event_revenue,
+    total_cost,
+    total_clicks,
+    total_installs,
+    total_impressions,
+    total_re_attributions,
+    total_re_engagements,
+    total_video_completions,
+    total_video_25p_views,
+    total_video_50p_views,
+    total_video_75p_views,
+    fb_total_outbound_clicks,
+    fb_total_impressions,
+    fb_total_clicks,
+    thumbnail_url,
+    video_url,
+    activity.activity_revenue_trial_cancelled,
+    activity.activity_revenue_subscription_cancelled,
+    activity.activity_revenue_trial_started,
+    activity.activity_revenue_one_time_purchase,
+    activity.activity_revenue_subscription_renewed,
+    activity.activity_revenue_subscription_started,
+    activity.activity_revenue_subscription_expired,
+    activity.activity_revenue_subscription_changed,
+
+    activity.activity_trial_cancelled,
+    activity.activity_subscription_cancelled,
+    activity.activity_trial_started,
+    activity.activity_one_time_purchase,
+    activity.activity_subscription_renewed,
+    activity.activity_subscription_started,
+    activity.activity_subscription_expired,
+    activity.activity_subscription_changed,
+
+
+FROM (
+
+SELECT
+    main.report_date AS report_date,
+    'teli' as app_id,
+    main.geo as geo,
+    main.campaign as campaign,
+    main.adset as adset,
+    main.ad as ad,
+    main.media_source as media_source,
+    main.adjust_os_id as adjust_os_id,
+
+    SUM(main.trial_cancelled)                    AS trial_cancelled,
+    SUM(main.subscription_cancelled)             AS subscription_cancelled,
+    SUM(main.trial_started)                      AS trial_started,
+    SUM(main.one_time_purchase)                  AS one_time_purchase,
+    SUM(main.subscription_renewed)               AS subscription_renewed,
+    SUM(main.subscription_started)               AS subscription_started,
+    SUM(main.subscription_expired)               AS subscription_expired,
+    SUM(main.subscription_changed)               AS subscription_changed,
+
+    SUM(main.unique_trial_cancelled)              AS unique_trial_cancelled,
+    SUM(main.unique_subscription_cancelled)       AS unique_subscription_cancelled,
+    SUM(main.unique_trial_started)                AS unique_trial_started,
+    SUM(main.unique_one_time_purchase)            AS unique_one_time_purchase,
+    SUM(main.unique_subscription_renewed)         AS unique_subscription_renewed,
+    SUM(main.unique_subscription_started)         AS unique_subscription_started,
+    SUM(main.unique_subscription_expired)         AS unique_subscription_expired,
+    SUM(main.unique_subscription_changed)         AS unique_subscription_changed,
+
+    SUM(main.revenue_trial_cancelled)             AS revenue_trial_cancelled,
+    SUM(main.revenue_subscription_cancelled)      AS revenue_subscription_cancelled,
+    SUM(main.revenue_trial_started)               AS revenue_trial_started,
+    SUM(main.revenue_one_time_purchase)           AS revenue_one_time_purchase,
+    SUM(main.revenue_subscription_renewed)        AS revenue_subscription_renewed,
+    SUM(main.revenue_subscription_started)        AS revenue_subscription_started,
+    SUM(main.revenue_subscription_expired)        AS revenue_subscription_expired,
+    SUM(main.revenue_subscription_changed)        AS revenue_subscription_changed,
+
+    SUM(main.event_revenue)                       AS event_revenue,
+    SUM(main.total_cost)                          AS total_cost,
+    SUM(main.total_clicks)                        AS total_clicks,
+    SUM(main.total_installs)                      AS total_installs,
+    SUM(main.total_impressions)                   AS total_impressions,
+    SUM(main.total_re_attributions)               AS total_re_attributions,
+    SUM(main.total_re_engagements)                AS total_re_engagements,
+
+    SUM(main.total_video_completions)             AS total_video_completions,
+    SUM(main.total_video_25p_views)               AS total_video_25p_views,
+    SUM(main.total_video_50p_views)               AS total_video_50p_views,
+    SUM(main.total_video_75p_views)               AS total_video_75p_views,
+
+    SUM(main.fb_total_outbound_clicks)             AS fb_total_outbound_clicks,
+    SUM(main.fb_total_impressions)                 AS fb_total_impressions,
+    SUM(main.fb_total_clicks)                      AS fb_total_clicks,
+
+    ANY_VALUE(main.thumbnail_url)                  AS thumbnail_url,
+    ANY_VALUE(main.video_url)                      AS video_url
+
+FROM (
+SELECT
+  main.*,
+  IFNULL(links.thumbnail_url, tiktok_links.thumbnail_url) as thumbnail_url,
+  IFNULL(links.video_url, tiktok_links.video_url) as video_url
+FROM
+  `rockads-thirdparty.teli_adjust_ds.teli_platforms_merged_metrics_all_cost_geo_unique` main
+LEFT JOIN
+  `rockads-thirdparty.teli_adjust_ds.teli_facebook_links_urls` links
+ON
+  main.app_id=links.app_id
+  AND main.ad=links.ad
+  AND IF(main.media_source = 'facebook', 'Facebook Ads', main.media_source) = links.media_source
+LEFT JOIN
+  `rockads-thirdparty.teli_adjust_ds.teli_tiktok_links_urls` tiktok_links
+ON
+  main.app_id=tiktok_links.app_id
+  AND main.ad=tiktok_links.ad
+  AND IF(main.media_source = 'tiktok', 'tiktokglobal_int', main.media_source) = tiktok_links.media_source
+
+
+UNION ALL
+SELECT
+  report_date,
+  app_id,
+  geo,
+  campaign,
+  adset,
+  ad,
+  media_source,
+  adjust_os_id,
+    trial_cancelled,
+    subscription_cancelled,
+    trial_started,
+    one_time_purchase,
+    subscription_renewed,
+    subscription_started,
+    subscription_expired,
+    subscription_changed,
+
+    unique_trial_cancelled,
+    unique_subscription_cancelled,
+    unique_trial_started,
+    unique_one_time_purchase,
+    unique_subscription_renewed,
+    unique_subscription_started,
+    unique_subscription_expired,
+    unique_subscription_changed,
+
+    revenue_trial_cancelled,
+    revenue_subscription_cancelled,
+    revenue_trial_started,
+    revenue_one_time_purchase,
+    revenue_subscription_renewed,
+    revenue_subscription_started,
+    revenue_subscription_expired,
+    revenue_subscription_changed,
+  event_revenue,
+  total_cost,
+  total_clicks,
+  total_installs,
+  total_impressions,
+  total_re_attributions,
+  total_re_engagements,
+  total_video_completions,
+  total_video_25p_views,
+  total_video_50p_views,
+  total_video_75p_views,
+  fb_total_outbound_clicks,
+  fb_total_impressions,
+  fb_total_clicks,
+  thumbnail_url,
+  video_url
+FROM
+  `rockads-thirdparty.teli_adjust_ds.teli_organic_combined_metrics_unique_dm`
+
+) main
+group by all
+
+) ltv
+# Activity Part
+
+FULL OUTER JOIN rockads-thirdparty.teli_adjust_ds.teli_activity_union AS activity
+ON
+  ltv.report_date=activity.report_date
+  AND ltv.app_id=activity.app_id
+  AND ltv.geo=activity.geo
+  AND ltv.campaign=activity.campaign
+  AND ltv.adset=activity.af_adset
+  AND ltv.ad=activity.ad
+  AND ltv.media_source=activity.media_source
+  AND ltv.adjust_os_id=activity.adjust_os_id
+
+) non_rltv
+
+# LTV Cohort Revenue d1,3,7,15,30
+
+LEFT JOIN rockads-thirdparty.teli_adjust_ds.teli_revenue_ltv rltv
+ON
+  non_rltv.report_date=rltv.install_date
+  AND non_rltv.geo=rltv.country_code
+  AND IFNULL(non_rltv.campaign, 'None')=IFNULL(rltv.campaign, 'None')
+  AND IFNULL(non_rltv.adset, 'None')=IFNULL(rltv.af_adset, 'None')
+  AND IFNULL(non_rltv.ad, 'None')=IFNULL(rltv.af_ad, 'None')
+  AND non_rltv.media_source=rltv.media_source
+  AND non_rltv.adjust_os_id=rltv.adjust_os_id
+
+)
+
+SELECT * FROM raw_main_data
+
+
+
+
+
+

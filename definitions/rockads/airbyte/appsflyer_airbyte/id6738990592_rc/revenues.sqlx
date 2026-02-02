@@ -1,0 +1,68 @@
+config {
+  type: "table",
+    bigquery: {
+    partitionBy: "event_date",
+    clusterBy: ["country_code"]
+  },
+  database: `${dataform.projectConfig.vars.rockadsProject}`,
+  name: "id6738990592_rc_revenues",
+  schema: "id6738990592_rc_appsflyer_ds",
+  dependencies: ['id6738990592_rc_platforms_merged_all_cost_geo'],
+  tags: ['appsflyer_id6738990592_rc_main']
+}
+
+WITH
+  main_raw_data AS (
+  SELECT
+    campaign,
+    af_adset,
+    af_ad,
+    af_ad_id,
+    CASE WHEN media_source in ('facebook','restricted') then 'Facebook Ads' ELSE media_source end as media_source,
+    'id6738990592' as appsflyer_os_id,
+    country_code,
+    DATE(install_time) AS event_date,
+    CAST(JSON_EXTRACT_SCALAR(event_value, '$.af_price')AS FLOAT64) AS event_value_af_price,
+    CAST(JSON_EXTRACT_SCALAR(event_value, '$.af_revenue')AS FLOAT64) AS event_value_af_revenue,
+    CAST(event_revenue AS FLOAT64) event_revenue
+  FROM
+    `${dataform.projectConfig.vars.rockadsProject}.appsflyer.id6738990592_in_app_events`
+    where app_id in ('id6738990592', 'com.videoai.effects')
+   UNION ALL
+ SELECT
+    campaign,
+    af_adset,
+    af_ad,
+    af_ad_id,
+    CASE WHEN media_source in ('facebook','restricted') then 'Facebook Ads' ELSE media_source end as media_source,
+    'com_videoai_effects' as appsflyer_os_id,
+    country_code,
+    DATE(install_time) AS event_date,
+    CAST(JSON_EXTRACT_SCALAR(event_value, '$.af_price')AS FLOAT64) AS event_value_af_price,
+    CAST(JSON_EXTRACT_SCALAR(event_value, '$.af_revenue')AS FLOAT64) AS event_value_af_revenue,
+    CAST(event_revenue AS FLOAT64) event_revenue
+  FROM
+    `${dataform.projectConfig.vars.rockadsProject}.appsflyer.com_videoai_effects_in_app_events`
+    where app_id in ('id6738990592', 'com.videoai.effects')
+    )
+SELECT
+  *
+FROM (
+  SELECT
+    campaign,
+    af_adset,
+    af_ad,
+    af_ad_id,
+    country_code,
+    media_source,
+    appsflyer_os_id,
+    event_date,
+    SUM(
+    IF
+      (event_value_af_revenue=0,0,event_value_af_price)) AS event_value_af_price,
+    SUM(event_value_af_revenue) AS event_value_af_revenue,
+    SUM(CAST(event_revenue AS FLOAT64)) event_revenue
+  FROM
+    main_raw_data
+  GROUP BY
+    ALL )

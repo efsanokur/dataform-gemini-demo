@@ -1,0 +1,95 @@
+config {
+  type: "table",
+    bigquery: {
+    partitionBy: "event_date",
+    clusterBy: ["country_code"]
+  },
+  database: `${dataform.projectConfig.vars.rockadsProject}`,
+  name: "id1010631459_organic_activity_event_counts_unique",
+  schema: "id1010631459_appsflyer_ds",
+  dependencies: ['id1010631459_organic_activity_revenues'],
+  tags: ['appsflyer_id1010631459_main']
+}
+
+WITH main_raw_data AS (
+SELECT  'ORGANIC' as campaign, 'ORGANIC' as af_adset, 'ORGANIC' as af_ad,'ORGANIC' as af_ad_id, event_name,'ORGANIC' as media_source,
+'id1010631459' as appsflyer_os_id,
+country_code,customer_user_id,
+DATE(event_time) as event_date,
+
+ FROM `${dataform.projectConfig.vars.rockadsProject}.appsflyer.id1010631459_organic_in_app_events`
+ WHERE event_time < '${realtime_marketing.realtime_start_ts_calc}'
+
+UNION ALL
+SELECT 'ORGANIC' as campaign, 'ORGANIC' as af_adset, 'ORGANIC' as af_ad,'ORGANIC' as af_ad_id, event_name,'ORGANIC' as media_source,
+'id1010631459' as appsflyer_os_id,
+country_code,customer_user_id,
+DATE(event_time) as event_date,
+FROM
+`rockads-thirdparty.realtime_appsflyer_events.id1010631459_events_latest`
+WHERE
+    event_time >= '${realtime_marketing.realtime_start_ts_calc}'
+    AND event_time <  '${realtime_marketing.realtime_end_ts_calc}'
+    AND media_source = 'organic'
+
+
+UNION ALL 
+SELECT  'ORGANIC' as campaign, 'ORGANIC' as af_adset, 'ORGANIC' as af_ad,'ORGANIC' as af_ad_id, event_name,'ORGANIC' as media_source,
+'app_source_getcontact' as appsflyer_os_id,
+country_code,customer_user_id,
+DATE(event_time) as event_date,
+FROM `${dataform.projectConfig.vars.rockadsProject}.appsflyer.app_source_getcontact_organic_in_app_events`
+ WHERE event_time < '${realtime_marketing.realtime_start_ts_calc}'
+
+UNION ALL
+SELECT 'ORGANIC' as campaign, 'ORGANIC' as af_adset, 'ORGANIC' as af_ad,'ORGANIC' as af_ad_id, event_name,'ORGANIC' as media_source,
+'app_source_getcontact' as appsflyer_os_id,
+country_code,customer_user_id,
+DATE(event_time) as event_date,
+FROM
+`rockads-thirdparty.realtime_appsflyer_events.app_source_getcontact_events_latest`
+WHERE
+    event_time >= '${realtime_marketing.realtime_start_ts_calc}'
+    AND event_time <  '${realtime_marketing.realtime_end_ts_calc}'
+    AND media_source = 'organic'
+
+# Adjust
+UNION ALL
+SELECT
+  IF(media_source='Organic', 'ORGANIC', IF(campaign_name='Organic', 'ORGANIC', campaign_name)) as campaign_name,
+  IF(campaign_name='Organic', 'ORGANIC',IF(media_source='Organic', 'ORGANIC', IF(adgroup_name='Organic', 'ORGANIC', adgroup_name))) as adgroup_name,
+  IF(campaign_name='Organic', 'ORGANIC',IF(media_source='Organic', 'ORGANIC', IF(ad_name='Organic', 'ORGANIC', ad_name))) as ad_name,
+  NULL AS  af_ad_id,
+  event_name,
+  CASE
+  WHEN media_source in ('Facebook Installs','Facebook','facebook','restricted') then 'Facebook Ads'
+  WHEN media_source = 'Organic' then 'ORGANIC'
+  ELSE media_source end as media_source,
+  appsflyer_os_id,
+  UPPER(country_code) AS country_code,
+  _random_user_id_ as customer_user_id,
+  DATE(event_time) AS event_date
+FROM  `rockads-thirdparty.gtc_adjust_ds.all_events`
+WHERE event_time >= '2026-01-09' and lower(media_source) = 'organic'
+
+)
+SELECT * FROM (
+SELECT campaign, af_adset, af_ad, af_ad_id, country_code,
+media_source, appsflyer_os_id, event_name,
+event_date,
+count(event_name) AS event_count,
+count(distinct customer_user_id) AS unique_event_count,
+FROM main_raw_data 
+GROUP BY ALL
+)
+PIVOT (
+  MAX(event_count) as activity_event_count,
+  MAX(unique_event_count)  as activity_unique_event_count FOR event_name IN (
+    'vnew',
+    'vreturning',
+    'subscribe',
+    'cc_success_total',
+    'start_trial',
+    'recurring_payment'
+  )
+)

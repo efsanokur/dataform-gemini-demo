@@ -1,0 +1,93 @@
+config {
+  type: "incremental",
+  database: `${dataform.projectConfig.vars.rockadsProject}`,
+  name: "ai_cleaner_churney_appsflyer_in_app_events",
+  schema: "churney",
+  tags: ['churney_appsflyer']
+}
+WITH
+  ios_in_apps AS (
+  SELECT
+    event_time,
+    install_time,
+    attributed_touch_time,
+    'id6738388891' AS appsflyer_app_id,
+    customer_user_id AS user_id,
+    appsflyer_id,
+    media_source,
+    af_c_id AS campaign_id,
+    af_ad_id AS ad_id,
+    af_adset as adset,
+    campaign as campaign,
+    af_ad as ad,
+    country_code as geo,
+    'ios' AS platform,
+    cast(Null as string) AS firebase_app_instance_id,
+    event_name,
+    event_revenue_currency AS currency,
+    cast(event_revenue as FLOAT64) AS revenue
+  FROM
+    `rockads-thirdparty.appsflyer_airbyte.ai_cleaner_in_app_events`
+  WHERE
+    DATE(event_time) >= DATE_SUB(CURRENT_DATE('UTC'), INTERVAL 2 DAY)
+  UNION ALL
+  SELECT
+    event_time,
+    install_time,
+    SAFE.PARSE_TIMESTAMP('%Y-%m-%d %H:%M:%S', attributed_touch_time)  AS attributed_touch_time,
+    'id6738388891' AS appsflyer_app_id,
+    customer_user_id AS user_id,
+    appsflyer_id,
+    media_source,
+    campaign_id AS campaign_id,
+    null AS ad_id,
+    af_adset as adset,
+    campaign as campaign,
+    af_ad as ad,
+    country_code as geo,
+    'ios' AS platform,
+    cast(Null as string) AS firebase_app_instance_id,
+    event_name,
+    event_revenue_currency AS currency,
+    SAFE_CAST(NULLIF(event_revenue, '') AS FLOAT64) AS event_revenue,
+  FROM
+    `rockads-thirdparty.appsflyer_airflow.id6738388891_in_app_events`
+  WHERE
+    DATE(event_time) >= DATE_SUB(CURRENT_DATE('UTC'), INTERVAL 2 DAY)
+
+
+  UNION ALL
+  SELECT
+    event_time,
+    install_time,
+    NULL AS attributed_touch_time,
+    'id6738388891' AS appsflyer_app_id,
+    customer_user_id AS user_id,
+    appsflyer_id,
+    'ORGANIC' AS media_source,
+    'ORGANIC' AS campaign_id,
+    'ORGANIC' AS ad_id,
+    'ORGANIC' as adset,
+    'ORGANIC' as campaign,
+    'ORGANIC' as ad,
+    country_code as geo,
+    'ios' AS platform,
+    cast(Null as string) AS firebase_app_instance_id,
+    event_name,
+    'USD' AS currency,
+    cast(event_revenue as FLOAT64) AS revenue
+  FROM
+    `rockads-thirdparty.appsflyer_airbyte.ai_cleaner_organic_in_app_events`
+  WHERE
+    DATE(event_time) >= DATE_SUB(CURRENT_DATE('UTC'), INTERVAL 2 DAY)
+
+   )
+SELECT
+  *,
+  TIMESTAMP(CURRENT_DATETIME('UTC')) AS _inserted_at
+FROM (
+  SELECT
+    *
+  FROM
+    ios_in_apps
+ )

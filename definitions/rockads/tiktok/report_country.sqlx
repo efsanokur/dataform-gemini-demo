@@ -1,0 +1,51 @@
+config {
+  type: "table",
+  bigquery: {
+    partitionBy: "created_time"
+  },
+  database: `${dataform.projectConfig.vars.rockadsProject}`,
+  name: "tiktok_report_country",
+  schema: "thirdparty_datamarts",
+  tags: ['tiktok'],
+  dependencies: ["tiktok_advertiser_names"]
+}
+
+SELECT
+  t0.created_time,
+  t1.advertiser_name AS account_name,
+  IFNULL(tsa.app_id, "NOT FOUND") app_name,
+  tsa.owner,
+  c.name AS country,
+  SUM(CAST(clicks AS float64)) total_click,
+  SUM(CAST(impressions AS float64)) total_imp,
+  SUM(CAST(spend AS float64) * IFNULL((CASE
+          WHEN t0.currency = 'USD' THEN 1
+          ELSE currency_rate
+      END
+        ),0)) total_spend
+FROM
+  `${dataform.projectConfig.vars.rockadsProject}.tiktok.tiktok_campaign_country_spends_*` t0
+LEFT JOIN
+  ${dataform.projectConfig.vars.rockadsProject}.mapping_tables.tiktok_advertiser_names t1
+ON
+  t0.advertiser_id = t1.advertiser_id
+LEFT JOIN
+  ${dataform.projectConfig.vars.rockadsProject}.mapping_tables.countries c
+ON
+  t0.country = c.short_code
+LEFT JOIN
+  `${dataform.projectConfig.vars.rockadsProject}.mapping_tables.currency_rates_*` cr
+ON
+  t0.currency = cr.relative_currency
+  AND cr.date = t0.created_time
+LEFT JOIN
+  ${dataform.projectConfig.vars.rockadsProject}.mapping_tables.tiktok_snapchat_appnames tsa
+ON
+  LOWER(tsa.app_code) = LOWER(SPLIT(split(campaign_name,
+        '-')[SAFE_OFFSET(0)],"_")[SAFE_OFFSET(0)])
+GROUP BY
+  t0.created_time,
+  t1.advertiser_name,
+  tsa.app_id,
+  tsa.owner,
+  c.name

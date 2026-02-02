@@ -1,0 +1,22 @@
+config {
+    type: "table",
+    name: "esim_all_users_original_event_dates",
+    tags: ['id6473276045_zotlo'],
+    schema: "id6473276045_appsflyer_ds",
+      bigquery: {
+        partitionBy: "DATE(original_event_date)"
+    },
+    database: `${dataform.projectConfig.vars.rockadsProject}`,
+    description: "This query incrementally updates the esim_all_users_original_event_dates table by merging yesterday’s purchase events, setting each user’s earliest event date or inserting new users if they don’t exist.",
+}
+
+SELECT
+  subscriberId,
+  platform,
+  eventDate AS original_event_date
+FROM
+  `zotlo-dataland.zotlo_events.purchase_*`
+WHERE
+  _TABLE_SUFFIX <= FORMAT_DATE('%Y%m%d', DATE_SUB(CURRENT_DATE(), INTERVAL 1 DAY)) AND
+  appName = "eSIM io"
+QUALIFY ROW_NUMBER() OVER (PARTITION BY subscriberId ORDER BY eventDate ASC) = 1

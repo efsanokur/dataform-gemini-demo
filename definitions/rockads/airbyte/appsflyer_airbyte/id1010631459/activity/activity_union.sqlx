@@ -1,0 +1,50 @@
+
+config {
+  type: "table",
+    bigquery: {
+    partitionBy: "report_date"
+  },
+  database: `${dataform.projectConfig.vars.rockadsProject}`,
+  name: "id1010631459_activity_union",
+  schema: "id1010631459_appsflyer_ds",
+  dependencies: ['id1010631459_organic_activity_combined_metrics_unique_dm', 'id1010631459_activity_combined_metrics_unique_dm'],
+  tags: ['appsflyer_id1010631459_main']
+}
+
+  SELECT
+    report_date,
+    app_id,
+    geo,
+    campaign,
+    af_adset,
+    ad,
+    media_source,
+    appsflyer_os_id,
+    SUM(activity_vnew) AS activity_vnew,
+    SUM(activity_vreturning) AS activity_vreturning,
+    SUM(activity_cc_success_total) AS activity_cc_success_total,
+    SUM(activity_subscribe) AS activity_subscribe,
+    SUM(activity_start_trial) AS activity_start_trial,
+    SUM(activity_recurring_payment) AS activity_recurring_payment,
+
+    -- Unique event counts
+    SUM(activity_unique_vnew) AS activity_unique_vnew,
+    SUM(activity_unique_vreturning) AS activity_unique_vreturning,
+    SUM(activity_unique_cc_success_total) AS activity_unique_cc_success_total,
+    SUM(activity_unique_subscribe) AS activity_unique_subscribe,
+    SUM(activity_unique_start_trial) AS activity_unique_start_trial,
+    SUM(activity_unique_recurring_payment) AS activity_unique_recurring_payment,
+
+    SUM(activity_event_revenue) AS activity_event_revenue
+  FROM(
+    SELECT *
+  FROM
+    ${dataform.projectConfig.vars.rockadsProject}.id1010631459_appsflyer_ds.id1010631459_activity_combined_metrics_unique_dm
+  UNION ALL
+  SELECT
+    *
+  FROM
+    ${dataform.projectConfig.vars.rockadsProject}.id1010631459_appsflyer_ds.id1010631459_organic_activity_combined_metrics_unique_dm
+  )
+  GROUP BY
+    ALL

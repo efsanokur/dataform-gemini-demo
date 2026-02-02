@@ -1,0 +1,79 @@
+config {
+  type: "table",
+    bigquery: {
+    partitionBy: "order_charged_date"
+  },
+  database: `${dataform.projectConfig.vars.rockadsProject}`,
+  name: "googlePlay_report_sales_dashboard",
+  schema: "thirdparty_datamarts",
+  tags: ['google_play'],
+  dependencies: ["google_play_app_account_names"]
+}
+
+SELECT
+  order_charged_date,
+  c.name AS country,
+  financial_status,
+  an.account_name,
+  an.app_name,
+  gps.product_id,
+  gps.sku_id,
+  gps.product_title,
+  CASE
+    WHEN gps.bucket_name IS NOT NULL THEN t1.company_name
+    ELSE IFNULL(t2.company_name, t2.name)
+END
+  AS company_name,
+  product_type,
+  currency_of_sale,
+  SUM(CAST(charged_amount AS float64) / (CASE
+        WHEN currency_of_sale = 'USD' THEN 1
+        ELSE currency_rate
+    END
+      )) AS sales,
+  SUM(CAST(charged_amount AS FLOAT64)) AS original_sales,
+  COUNT(DISTINCT order_number) AS order_count
+FROM
+  `${dataform.projectConfig.vars.rockadsProject}.googlePlay.googlePlay_sales_*` gps
+LEFT JOIN
+  ${dataform.projectConfig.vars.rockadsProject}.mapping_tables.google_play_app_account_names an
+ON
+  gps.product_id = an.product_id
+LEFT JOIN
+  `${dataform.projectConfig.vars.rockadsProject}.mapping_tables.currency_rates_*` cr
+ON
+  cr.date = gps.order_charged_date
+  AND cr.relative_currency = gps.currency_of_sale
+LEFT JOIN
+  ${dataform.projectConfig.vars.rockadsProject}.mapping_tables.countries c
+ON
+  c.short_code = gps.country_of_buyer
+LEFT JOIN
+  ${dataform.projectConfig.vars.rockadsProject}.googlePlay.googlePlay_tokens t1
+ON
+  gps.bucket_name = t1.bucket_name
+LEFT JOIN (
+  SELECT
+    t0.*,
+    t1.company_name
+  FROM
+    ${dataform.projectConfig.vars.rockadsProject}.mapping_tables.googlePlay_product_token t0
+  LEFT JOIN
+    ${dataform.projectConfig.vars.rockadsProject}.googlePlay.googlePlay_tokens t1
+  ON
+    t0.bucket_name = t1.bucket_name) t2
+ON
+  t2.product_id = gps.product_id
+  --where order_charged_date >= date_add(current_date(), interval -6 day)
+GROUP BY
+  order_charged_date,
+  c.name,
+  financial_status,
+  an.account_name,
+  an.app_name,
+  gps.product_id,
+  gps.sku_id,
+  gps.product_title,
+  company_name,
+  product_type,
+  currency_of_sale

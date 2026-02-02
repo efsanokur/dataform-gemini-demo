@@ -1,0 +1,43 @@
+config {
+  type: "table",
+  bigquery: {
+    partitionBy: "event_date",
+    clusterBy: ["country_code"]
+  },
+  database: `${dataform.projectConfig.vars.rockadsProject}`,
+  name: "appsflyer_metrics_summary",
+  schema: "appsflyer_airbyte_datamarts",
+  dependencies: ["appsflyer_meta_summary", "appsflyer_revenues"],
+  tags: ['appsflyer_airbyte_pipeline']
+}
+
+SELECT
+  *
+FROM (
+  SELECT
+    meta_sum.Campaign as campaign,
+    meta_sum.Ad as af_ad,
+    meta_sum.Ad_Id as af_ad_id,
+    meta_sum.country_code,
+    meta_sum.media_source,
+    meta_sum.event_date,
+    revs.event_value_af_price,
+    revs.event_value_af_revenue,
+    revs.event_revenue,
+    avg_roi,
+    total_cost,
+    total_impressions,
+    total_clicks,
+    total_installs,
+    total_uninstalls,
+  FROM
+  `${dataform.projectConfig.vars.rockadsProject}.appsflyer_airbyte_datamarts.appsflyer_meta_summary` meta_sum
+  LEFT JOIN
+    `${dataform.projectConfig.vars.rockadsProject}.appsflyer_airbyte_datamarts.appsflyer_revenues` revs
+  ON
+    revs.campaign=meta_sum.Campaign
+    AND revs.af_ad=meta_sum.Ad
+    AND revs.af_ad_id=meta_sum.Ad_Id
+    AND revs.country_code=meta_sum.country_code
+    AND revs.media_source=meta_sum.media_source
+    AND revs.event_date=meta_sum.event_date )

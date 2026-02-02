@@ -1,0 +1,140 @@
+config {
+  type: "table",
+    bigquery: {
+    partitionBy: "report_date"
+  },
+  database: `${dataform.projectConfig.vars.rockadsProject}`,
+  name: "id1010631459_organic_combined_metrics_unique_dm",
+  schema: "id1010631459_appsflyer_ds",
+  dependencies: ['id1010631459_organic_event_counts_unique'],
+  tags: ['appsflyer_id1010631459_main']
+}
+
+SELECT DISTINCT   report_date,
+  app_id,
+  geo,
+  campaign,
+  adset,
+  ad,
+  CASE WHEN media_source = 'facebook' then 'Facebook Ads' ELSE media_source end as media_source,
+  appsflyer_os_id,
+  CAST(Null AS STRING) AS thumbnail_url,
+  CAST(Null AS STRING) AS video_url,
+    SUM(vnew) vnew,
+    SUM(vreturning) vreturning,
+    SUM(cc_success_total) cc_success_total,
+    SUM(subscribe) subscribe,
+    SUM(start_trial) start_trial,
+    SUM(recurring_payment) recurring_payment,
+
+
+    SUM(unique_vnew) unique_vnew,
+    SUM(unique_vreturning) unique_vreturning,
+    SUM(unique_cc_success_total) unique_cc_success_total,
+    SUM(unique_subscribe) unique_subscribe,
+    SUM(unique_start_trial) unique_start_trial,
+    SUM(unique_recurring_payment) unique_recurring_payment,
+
+  SUM(event_revenue) AS event_revenue,
+  Null AS total_cost,
+  Null AS total_clicks,
+  Null AS total_installs,
+  Null AS total_impressions,
+  Null AS total_re_attributions,
+  Null AS total_re_engagements,
+  Null AS total_video_completions,
+  Null AS total_video_25p_views,
+  Null AS total_video_50p_views,
+  Null AS total_video_75p_views,
+  CAST(NULL AS NUMERIC) AS fb_total_outbound_clicks,
+  CAST(NULL AS NUMERIC) AS fb_total_impressions,
+  CAST(NULL AS NUMERIC) AS fb_total_clicks,
+FROM (
+WITH
+  appsflyer_count AS (
+  SELECT
+  DISTINCT
+    event_date AS report_date,
+    'id1010631459' AS app_id,
+    country_code AS geo,
+    campaign,
+    af_adset as adset,
+    af_ad AS ad,
+    media_source,
+    appsflyer_os_id,
+    SUM(event_count_vnew) event_count_vnew,
+    SUM(event_count_vreturning) event_count_vreturning,
+    SUM(event_count_cc_success_total) event_count_cc_success_total,
+    SUM(event_count_subscribe) event_count_subscribe,
+    SUM(event_count_start_trial) event_count_start_trial,
+    SUM(event_count_recurring_payment) event_count_recurring_payment,
+
+
+    SUM(unique_event_count_vnew) unique_event_count_vnew,
+    SUM(unique_event_count_vreturning) unique_event_count_vreturning,
+    SUM(unique_event_count_cc_success_total) unique_event_count_cc_success_total,
+    SUM(unique_event_count_subscribe) unique_event_count_subscribe,
+    SUM(unique_event_count_start_trial) unique_event_count_start_trial,
+    SUM(unique_event_count_recurring_payment) unique_event_count_recurring_payment,
+
+  FROM
+    `${dataform.projectConfig.vars.rockadsProject}.id1010631459_appsflyer_ds.id1010631459_organic_event_counts_unique`
+  GROUP BY ALL
+),
+  revenues AS (
+  SELECT
+    DISTINCT
+    event_date AS report_date,
+    'id1010631459' AS app_id,
+    country_code AS geo,
+    campaign,
+    af_adset as adset,
+    af_ad AS ad,
+    media_source,
+    appsflyer_os_id,
+    SUM(event_revenue) event_revenue
+  FROM
+    `${dataform.projectConfig.vars.rockadsProject}.id1010631459_appsflyer_ds.id1010631459_organic_revenues`
+  GROUP BY ALL
+)
+
+SELECT
+  IFNULL(af_counts.report_date, rvns.report_date) AS report_date,
+  IFNULL(af_counts.app_id, rvns.app_id) AS app_id,
+  IFNULL(af_counts.geo, rvns.geo) AS geo,
+  IFNULL(af_counts.campaign, rvns.campaign) AS campaign,
+  IFNULL(af_counts.adset, rvns.adset) AS adset,
+  IFNULL(af_counts.ad, rvns.ad) AS ad,
+  IFNULL(af_counts.media_source, rvns.media_source) AS media_source,
+  IFNULL(af_counts.appsflyer_os_id, rvns.appsflyer_os_id) AS appsflyer_os_id,
+  IFNULL(af_counts.event_count_vnew, 0) AS vnew,
+  IFNULL(af_counts.event_count_vreturning, 0) AS vreturning,
+  IFNULL(af_counts.event_count_cc_success_total, 0) AS cc_success_total,
+  IFNULL(af_counts.event_count_subscribe, 0) AS subscribe,
+  IFNULL(af_counts.event_count_start_trial, 0) AS start_trial,
+  IFNULL(af_counts.event_count_recurring_payment, 0) AS recurring_payment,
+
+  -- Unique event counts
+  IFNULL(af_counts.unique_event_count_vnew, 0) AS unique_vnew,
+  IFNULL(af_counts.unique_event_count_vreturning, 0) AS unique_vreturning,
+  IFNULL(af_counts.unique_event_count_cc_success_total, 0) AS unique_cc_success_total,
+  IFNULL(af_counts.unique_event_count_subscribe, 0) AS unique_subscribe,
+  IFNULL(af_counts.unique_event_count_start_trial, 0) AS unique_start_trial,
+  IFNULL(af_counts.unique_event_count_recurring_payment, 0) AS unique_recurring_payment,
+
+  IFNULL(rvns.event_revenue, 0) AS event_revenue,
+FROM
+  appsflyer_count af_counts
+FULL OUTER JOIN
+  revenues rvns
+ON
+  af_counts.report_date=rvns.report_date
+  AND af_counts.app_id=rvns.app_id
+  AND af_counts.geo=rvns.geo
+  AND af_counts.ad=rvns.ad
+  AND af_counts.media_source=rvns.media_source
+  AND af_counts.campaign=rvns.campaign
+  AND af_counts.adset=rvns.adset
+  AND af_counts.appsflyer_os_id=rvns.appsflyer_os_id
+)
+GROUP BY ALL

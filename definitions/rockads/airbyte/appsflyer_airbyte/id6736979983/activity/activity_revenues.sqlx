@@ -1,0 +1,147 @@
+config {
+  type: "table",
+    bigquery: {
+    partitionBy: "event_date",
+    clusterBy: ["country_code"]
+  },
+  database: `${dataform.projectConfig.vars.rockadsProject}`,
+  name: "id6736979983_activity_revenues",
+  schema: "id6736979983_appsflyer_ds",
+  dependencies: ['id6736979983_activity_distinct_ad_revenue_v2'],
+  tags: ['appsflyer_id6736979983_main']
+}
+
+WITH
+  main_raw_data AS (
+  SELECT
+    campaign,
+    IF(af_adset='',NULL, af_adset) AS af_adset,
+    af_ad,
+    af_ad_id,
+    CASE WHEN media_source in ('facebook','restricted') then 'Facebook Ads' ELSE media_source end as media_source,
+    'id6736979983' as appsflyer_os_id,
+    country_code,
+    DATE(event_time) AS event_date,
+    SAFE_CAST(
+      REGEXP_REPLACE(
+        JSON_EXTRACT_SCALAR(event_value, '$.af_price'),
+        r'[^0-9\.]',  -- remove all non-numeric characters except the period
+        ''
+      ) AS FLOAT64
+    ) AS event_value_af_price,
+
+    SAFE_CAST(
+      REGEXP_REPLACE(
+        JSON_EXTRACT_SCALAR(event_value, '$.af_revenue'),
+        r'[^0-9\.]',  -- remove all non-numeric characters except the period
+        ''
+      ) AS FLOAT64
+    ) AS event_value_af_revenue,
+    IFNULL(SAFE_CAST(NULLIF(event_revenue_usd, '') AS FLOAT64),  SAFE_CAST(NULLIF(event_revenue, '') AS FLOAT64)) AS event_revenue
+  FROM
+    `${dataform.projectConfig.vars.rockadsProject}.appsflyer.id6736979983_in_app_events`
+   WHERE event_time < '${realtime_marketing.realtime_start_ts_calc}'
+
+  UNION ALL
+    SELECT
+    campaign,
+    adset,
+    af_ad,
+    af_ad_id,
+    CASE WHEN media_source in ('facebook','restricted') then 'Facebook Ads' ELSE media_source end as media_source,
+    'id6736979983' as appsflyer_os_id,
+    country_code,
+    DATE(event_time) AS event_date,
+    SAFE_CAST(JSON_EXTRACT_SCALAR(event_value, '$.af_price')AS FLOAT64) AS event_value_af_price,
+    SAFE_CAST(JSON_EXTRACT_SCALAR(event_value, '$.af_revenue')AS FLOAT64) AS event_value_af_revenue,
+    SAFE_CAST(event_revenue_usd AS FLOAT64) event_revenue
+  FROM
+    `rockads-thirdparty.realtime_appsflyer_events.id6736979983_events_latest`
+  WHERE
+  event_time >= '${realtime_marketing.realtime_start_ts_calc}'
+  AND event_time <  '${realtime_marketing.realtime_end_ts_calc}'
+  AND media_source != 'organic'
+
+   UNION ALL
+ SELECT
+    campaign,
+    IF(af_adset='',NULL, af_adset) AS af_adset,
+    af_ad,
+    af_ad_id,
+    CASE WHEN media_source in ('facebook','restricted') then 'Facebook Ads' ELSE media_source end as media_source,
+    'com_shorten' as appsflyer_os_id,
+    country_code,
+    DATE(event_time) AS event_date,
+    SAFE_CAST(
+      REGEXP_REPLACE(
+        JSON_EXTRACT_SCALAR(event_value, '$.af_price'),
+        r'[^0-9\.]',  -- remove all non-numeric characters except the period
+        ''
+      ) AS FLOAT64
+    ) AS event_value_af_price,
+
+    SAFE_CAST(
+      REGEXP_REPLACE(
+        JSON_EXTRACT_SCALAR(event_value, '$.af_revenue'),
+        r'[^0-9\.]',  -- remove all non-numeric characters except the period
+        ''
+      ) AS FLOAT64
+    ) AS event_value_af_revenue,
+    IFNULL(SAFE_CAST(NULLIF(event_revenue_usd, '') AS FLOAT64),  SAFE_CAST(NULLIF(event_revenue, '') AS FLOAT64)) AS event_revenue
+  FROM
+    `${dataform.projectConfig.vars.rockadsProject}.appsflyer.com_shorten_in_app_events`
+     WHERE event_time < '${realtime_marketing.realtime_start_ts_calc}'
+
+  UNION ALL
+    SELECT
+    campaign,
+    adset,
+    af_ad,
+    af_ad_id,
+    CASE WHEN media_source in ('facebook','restricted') then 'Facebook Ads' ELSE media_source end as media_source,
+    'com_shorten' as appsflyer_os_id,
+    country_code,
+    DATE(event_time) AS event_date,
+    SAFE_CAST(JSON_EXTRACT_SCALAR(event_value, '$.af_price')AS FLOAT64) AS event_value_af_price,
+    SAFE_CAST(JSON_EXTRACT_SCALAR(event_value, '$.af_revenue')AS FLOAT64) AS event_value_af_revenue,
+    SAFE_CAST(event_revenue_usd AS FLOAT64) event_revenue
+  FROM
+    `rockads-thirdparty.realtime_appsflyer_events.com_shorten_events_latest`
+  WHERE
+  event_time >= '${realtime_marketing.realtime_start_ts_calc}'
+  AND event_time <  '${realtime_marketing.realtime_end_ts_calc}'
+  AND media_source != 'organic'
+
+     UNION ALL
+  SELECT
+  campaign, af_adset, af_ad, af_ad_id,media_source,
+  appsflyer_os_id,
+  country_code,
+  event_date,
+  0.0 AS event_value_af_price,
+  0.0 AS event_value_af_revenue,
+  event_revenue
+FROM
+  `rockads-thirdparty.id6736979983_appsflyer_ds.id6736979983_activity_distinct_ad_revenue_v2`
+    )
+SELECT
+  *
+FROM (
+  SELECT
+    campaign,
+    af_adset,
+    af_ad,
+    af_ad_id,
+    country_code,
+    media_source,
+    appsflyer_os_id,
+    event_date,
+    SUM(
+    IF
+      (event_value_af_revenue=0,0,event_value_af_price)) AS activity_event_value_af_price,
+    SUM(event_value_af_revenue) AS activity_event_value_af_revenue,
+    SUM(CAST(event_revenue AS FLOAT64)) activity_event_revenue
+  FROM
+    main_raw_data
+  GROUP BY
+    ALL )

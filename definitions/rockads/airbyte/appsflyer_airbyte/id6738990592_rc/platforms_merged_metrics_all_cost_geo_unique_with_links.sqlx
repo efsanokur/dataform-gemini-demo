@@ -1,0 +1,87 @@
+config {
+  type: "table",
+    bigquery: {
+    partitionBy: "report_date"
+  },
+  database: `${dataform.projectConfig.vars.rockadsProject}`,
+  name: "id6738990592_rc_platforms_merged_metrics_all_cost_geo_unique_with_links",
+  schema: "id6738990592_rc_appsflyer_ds",
+  dependencies: ['id6738990592_rc_tiktok_links_urls'],
+  tags: ['appsflyer_id6738990592_rc_main']
+}
+
+
+SELECT
+  main.*,
+  IFNULL(links.thumbnail_url, tiktok_links.thumbnail_url) as thumbnail_url,
+  IFNULL(links.video_url, tiktok_links.video_url) as video_url
+FROM
+  `${dataform.projectConfig.vars.rockadsProject}.id6738990592_rc_appsflyer_ds.id6738990592_rc_platforms_merged_metrics_all_cost_geo_unique` main
+LEFT JOIN
+  `${dataform.projectConfig.vars.rockadsProject}.id6738990592_rc_appsflyer_ds.id6738990592_rc_facebook_links_urls` links
+ON
+  main.app_id=links.app_id
+  AND main.ad=links.ad
+  AND IF(main.media_source = 'facebook', 'Facebook Ads', main.media_source) = links.media_source
+LEFT JOIN
+  `${dataform.projectConfig.vars.rockadsProject}.id6738990592_rc_appsflyer_ds.id6738990592_rc_tiktok_links_urls` tiktok_links
+ON
+  main.app_id=tiktok_links.app_id
+  AND main.ad=tiktok_links.ad
+  AND IF(main.media_source = 'tiktok', 'tiktokglobal_int', main.media_source) = tiktok_links.media_source
+  
+UNION ALL
+SELECT
+  report_date,
+  app_id,
+  geo,
+  campaign,
+  adset,
+  ad,
+  media_source,
+  appsflyer_os_id,
+  rc_trial_converted_event,
+  rc_renewal_event,
+  rc_cancellation_event,
+  rc_trial_started_event,
+  rc_trial_cancelled_event,
+  rc_initial_purchase_event,
+  rc_non_subscription_purchase_event,
+  rc_expiration_event,
+  rc_billing_issue_event,
+  rc_product_change_event,
+  unique_rc_trial_converted_event,
+  unique_rc_renewal_event,
+  unique_rc_cancellation_event,
+  unique_rc_trial_started_event,
+  unique_rc_trial_cancelled_event,
+  unique_rc_initial_purchase_event,
+  unique_rc_non_subscription_purchase_event,
+  unique_rc_expiration_event,
+  unique_rc_billing_issue_event,
+  unique_rc_product_change_event,
+  revenue_rc_trial_converted_event,
+  revenue_rc_renewal_event,
+  revenue_rc_cancellation_event,
+  revenue_rc_trial_started_event,
+  revenue_rc_trial_cancelled_event,
+  revenue_rc_initial_purchase_event,
+  revenue_rc_non_subscription_purchase_event,
+  revenue_rc_expiration_event,
+  revenue_rc_billing_issue_event,
+  revenue_rc_product_change_event,
+  event_revenue,
+  total_cost,
+  total_clicks,
+  total_installs,
+  total_impressions,
+  total_re_attributions,
+  total_re_engagements,
+  total_video_completions,
+  total_video_25p_views,
+  total_video_50p_views,
+  total_video_75p_views,
+  thumbnail_url,
+  video_url
+FROM
+  `${dataform.projectConfig.vars.rockadsProject}.id6738990592_rc_appsflyer_ds.id6738990592_rc_organic_combined_metrics_unique_dm`

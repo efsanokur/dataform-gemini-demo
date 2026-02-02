@@ -1,0 +1,64 @@
+config {
+  type: "table",
+  bigquery: {
+    partitionBy: "table_suffix",
+    clusterBy: ["app_id", "app_name"]
+  },
+  database: `${dataform.projectConfig.vars.rockadsProject}`,
+  name: "mellon_appsflyer_master_api",
+  schema: "datacan_thirdparty_api_datamarts",
+  tags: ['datacan_mellon_daily']
+}
+
+WITH apps AS (
+  SELECT
+    ['com.videoai.effects', 'id6738990592'] AS videa_apps,
+    ['id6738388891'] AS cleaner_apps,
+    ['id1662905686', 'app.roboco.android'] AS robo_apps
+)
+
+SELECT
+  PARSE_DATE('%Y%m%d', _TABLE_SUFFIX) AS table_suffix,
+
+  CASE
+    WHEN App_ID IN (SELECT app FROM UNNEST((SELECT videa_apps FROM apps)) as app)
+      THEN 'videa'
+    WHEN App_ID IN (SELECT app FROM UNNEST((SELECT cleaner_apps FROM apps)) as app)
+      THEN 'cleaner'
+    WHEN App_ID IN (SELECT app FROM UNNEST((SELECT robo_apps FROM apps)) as app)
+      THEN 'robo'
+    ELSE 'unknown'
+  END AS app_name,
+
+  App_ID AS app_id,
+  GEO AS geo,
+  Campaign AS campaign,
+  Ad AS ad,
+  Adset AS adset,
+  Channel AS channel,
+  Publisher_ID_af_siteid AS publisher_id_af_siteid,
+  Keywords AS keywords,
+  Is_Primary_Attribution AS is_primary_attribution,
+  Campaign_ID AS campaign_id,
+  Adset_ID AS adset_id,
+  Ad_ID AS ad_id,
+  Install_Time AS install_time,
+  Media_Source AS media_source,
+  Cost AS cost,
+  Revenue AS revenue,
+  ROI AS roi,
+  Average_eCPI AS average_ecpi,
+  Impressions AS impressions,
+  Clicks AS clicks,
+  Installs AS installs,
+  Conversion_Rate AS conversion_rate,
+  Uninstalls AS uninstalls,
+  Current_Date_manual AS current_date_manual,
+  App_Id_Manual AS app_id_manual
+FROM
+  `rockads-thirdparty.appsflyer.master_metrics_*`,
+  apps
+WHERE
+  App_ID IN UNNEST((
+    SELECT ARRAY_CONCAT(videa_apps, cleaner_apps, robo_apps) FROM apps
+  ))

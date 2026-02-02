@@ -1,0 +1,67 @@
+config {
+  type: "table",
+    bigquery: {
+    partitionBy: "created_time"
+  },
+  database: `${dataform.projectConfig.vars.rockadsProject}`,
+  name: "googleads_report_campaign_spends",
+  schema: "thirdparty_datamarts",
+  tags: ['google_ads'],
+  dependencies: ["googleads_customer_client_names "]
+}
+
+SELECT
+  t0.created_time,
+  customer_name,
+  t1.customer_client_name,
+  campaign_name,
+  CASE
+    WHEN campaign_name LIKE '%Android%' OR campaign_name LIKE '%AND%' THEN 'Android'
+    WHEN campaign_name LIKE '%iOS%'
+  OR campaign_name LIKE '%IOS%' THEN 'iOS'
+    WHEN campaign_name LIKE '%Web%' OR campaign_name LIKE '%web%' THEN 'Web'
+    WHEN customer_client_name LIKE '%Android%'
+  OR customer_client_name LIKE '%AND%' THEN 'Android'
+    WHEN customer_client_name LIKE '%iOS%' OR customer_client_name LIKE '%IOS%' THEN 'iOS'
+    ELSE "Web"
+END
+  AS platform,
+  gacc.country_name,
+  CASE
+    WHEN campaign_name LIKE '%AZ-%' THEN 'AstralZen'
+    WHEN campaign_name LIKE '%AC-%' THEN 'AstralCoach'
+    ELSE "-"
+END
+  AS nameAS,
+  t1.currency,
+  SUM(CAST(spend AS float64)) total_spend,
+  SUM(CAST(spend AS float64) /
+    CASE
+      WHEN t1.currency = 'USD' THEN 1
+      ELSE currency_rate
+  END
+    ) total_spend_usd
+FROM
+  `${dataform.projectConfig.vars.rockadsProject}.googleAds.googleAds_campaign_spends_*` t0
+LEFT JOIN
+  `${dataform.projectConfig.vars.rockadsProject}.mapping_tables.googleads_customer_client_names ` AS t1
+ON
+  t0.customer_client_id = t1.customer_client_id
+LEFT JOIN
+  `${dataform.projectConfig.vars.rockadsProject}.mapping_tables.currency_rates_*` t3
+ON
+  t0.created_time = t3.date
+  AND t3.relative_currency = t1.currency
+LEFT JOIN
+  ${dataform.projectConfig.vars.rockadsProject}.mapping_tables.googleAds_country_codes gacc
+ON
+  t0.country_id = CAST(gacc.country_id AS string)
+GROUP BY
+  created_time,
+  customer_name,
+  customer_client_name,
+  campaign_name,
+  platform,
+  gacc.country_name,
+  nameAS,
+  t1.currency

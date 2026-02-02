@@ -1,0 +1,27 @@
+config {
+  type: "table",
+  database: `${dataform.projectConfig.vars.rockadsProject}`,
+  name: "creatives_773901696065588",
+  schema: "fb_airbyte_datamarts",
+  tags: ['facebook_airbyte_all']
+}
+
+SELECT
+  DISTINCT
+  a.id AS ad_id,
+  a.name AS ad_name,
+  c.thumbnail_url,
+  CONCAT('facebook.com/',c.effective_object_story_id) AS video_url
+FROM
+  `${dataform.projectConfig.vars.rockadsProject}.fb_airbyte._773901696065588_ad_creatives` AS c
+LEFT JOIN (
+  SELECT
+    JSON_EXTRACT_SCALAR(creative, "$.id") AS creative_id,
+    id,
+    creative,
+    name
+  FROM
+    `${dataform.projectConfig.vars.rockadsProject}.fb_airbyte._773901696065588_ads`) AS a
+ON
+  c.id = a.creative_id
+WHERE a.id is not null

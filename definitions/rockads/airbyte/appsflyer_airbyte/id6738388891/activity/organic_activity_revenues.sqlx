@@ -1,0 +1,73 @@
+config {
+  type: "table",
+    bigquery: {
+    partitionBy: "event_date",
+    clusterBy: ["country_code"]
+  },
+  database: `${dataform.projectConfig.vars.rockadsProject}`,
+  name: "id6738388891_organic_activity_revenues",
+  schema: "id6738388891_appsflyer_ds",
+  tags: ['appsflyer_id6738388891_main']
+}
+
+WITH
+  main_raw_data AS (
+  SELECT
+    'ORGANIC' as campaign,
+    'ORGANIC' as af_adset,
+    'ORGANIC' as af_ad,
+    'ORGANIC' as af_ad_id,
+    'ORGANIC' as media_source,
+    'id6738388891' as appsflyer_os_id,
+    country_code,
+    DATE(event_time) AS event_date,
+    CAST(JSON_EXTRACT_SCALAR(event_value, '$.af_price')AS FLOAT64) AS event_value_af_price,
+    CAST(JSON_EXTRACT_SCALAR(event_value, '$.af_revenue')AS FLOAT64) AS event_value_af_revenue,
+    CAST(event_revenue AS FLOAT64) event_revenue
+  FROM
+    `${dataform.projectConfig.vars.rockadsProject}.appsflyer_airbyte.ai_cleaner_organic_in_app_events`
+   WHERE event_time < '${realtime_marketing.realtime_start_ts_calc}'
+  
+UNION ALL
+    SELECT
+    'ORGANIC' as campaign,
+    'ORGANIC' as af_adset,
+    'ORGANIC' as af_ad,
+    'ORGANIC' as af_ad_id,
+    'ORGANIC' as media_source,
+    'id6738388891' as appsflyer_os_id,
+    country_code,
+    DATE(event_time) AS event_date,
+    CAST(JSON_EXTRACT_SCALAR(event_value, '$.af_price')AS FLOAT64) AS event_value_af_price,
+    CAST(JSON_EXTRACT_SCALAR(event_value, '$.af_revenue')AS FLOAT64) AS event_value_af_revenue,
+    CAST(event_revenue AS FLOAT64) event_revenue
+    FROM
+        `rockads-thirdparty.realtime_appsflyer_events.id6738388891_events_latest`
+    WHERE
+      event_time >= '${realtime_marketing.realtime_start_ts_calc}'
+      AND event_time <  '${realtime_marketing.realtime_end_ts_calc}'
+      AND media_source = 'organic'
+        
+          
+  )
+SELECT
+  *
+FROM (
+  SELECT
+    campaign,
+    af_adset,
+    af_ad,
+    af_ad_id,
+    country_code,
+    media_source,
+    appsflyer_os_id,
+    event_date,
+    SUM(
+    IF
+      (event_value_af_revenue=0,0,event_value_af_price)) AS activity_event_value_af_price,
+    SUM(event_value_af_revenue) AS activity_event_value_af_revenue,
+    SUM(CAST(event_revenue AS FLOAT64)) activity_event_revenue
+  FROM
+    main_raw_data
+  GROUP BY
+    ALL )

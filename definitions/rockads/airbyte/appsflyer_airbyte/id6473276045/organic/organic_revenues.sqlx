@@ -1,0 +1,232 @@
+config {
+  type: "table",
+    bigquery: {
+    partitionBy: "event_date",
+    clusterBy: ["country_code"]
+  },
+  database: `${dataform.projectConfig.vars.rockadsProject}`,
+  name: "id6473276045_organic_revenues",
+  schema: "id6473276045_appsflyer_ds",
+  tags: ['appsflyer_id6473276045_main']
+}
+WITH currency_rates AS (
+SELECT
+      date,
+      base_currency,
+      relative_currency,
+      currency_rate
+FROM `rockads-thirdparty.mapping_tables.currency_rates_*`
+WHERE _TABLE_SUFFIX >='20250101'
+),
+  main_raw_data AS (
+  SELECT
+    'ORGANIC' as campaign,
+    'ORGANIC' as af_adset,
+    'ORGANIC' as af_ad,
+    'ORGANIC' as af_ad_id,
+    'ORGANIC' as media_source,
+    'id6473276045' as appsflyer_os_id,
+    installed_country_code as country_code,
+    DATE(install_time) AS event_date,
+    IFNULL(SAFE_CAST(JSON_EXTRACT_SCALAR(event_value, '$.af_price') AS FLOAT64), 0) AS event_value_af_price,
+    IFNULL(SAFE_CAST(JSON_EXTRACT_SCALAR(event_value, '$.af_revenue') AS FLOAT64), 0) AS event_value_af_revenue,
+    SAFE_DIVIDE(CAST(event_revenue AS FLOAT64), cr.currency_rate) as event_revenue
+  FROM
+    `${dataform.projectConfig.vars.rockadsProject}.appsflyer.id6473276045_organic_in_app_events`isdr
+
+  LEFT JOIN currency_rates cr ON DATE(isdr.event_time) = cr.date AND
+    IFNULL(event_revenue_currency, IFNULL(CAST(JSON_EXTRACT_SCALAR(isdr.event_value, '$.af_currency')AS STRING), 'USD')) = cr.relative_currency
+
+  LEFT JOIN (
+    SELECT
+      appsflyer_id,
+      country_code as installed_country_code
+    FROM
+      `rockads-thirdparty.appsflyer.id6473276045_organic_in_app_events`
+    QUALIFY ROW_NUMBER() OVER(PARTITION BY appsflyer_id ORDER BY event_time ASC) = 1
+    ) usr_ct on isdr.appsflyer_id=usr_ct.appsflyer_id
+
+  WHERE DATE(event_time) < '2025-07-24' and event_name != 'zt_payment_succes'
+
+  UNION ALL
+  SELECT
+    'ORGANIC' as campaign,
+    'ORGANIC' as af_adset,
+    'ORGANIC' as af_ad,
+    'ORGANIC' as af_ad_id,
+    'ORGANIC' as media_source,
+    'id6473276045' as appsflyer_os_id,
+    installed_country_code as country_code,
+    DATE(install_time) AS event_date,
+    IFNULL(SAFE_CAST(JSON_EXTRACT_SCALAR(event_value, '$.af_price') AS FLOAT64), 0) AS event_value_af_price,
+    IFNULL(SAFE_CAST(JSON_EXTRACT_SCALAR(event_value, '$.af_revenue') AS FLOAT64), 0) AS event_value_af_revenue,
+    SAFE_DIVIDE(CAST(event_revenue AS FLOAT64), cr.currency_rate) as event_revenue
+  FROM
+    `${dataform.projectConfig.vars.rockadsProject}.appsflyer.id6473276045_organic_in_app_events`isdr
+
+  LEFT JOIN currency_rates cr ON DATE(isdr.event_time) = cr.date AND
+    IFNULL(event_revenue_currency, IFNULL(CAST(JSON_EXTRACT_SCALAR(isdr.event_value, '$.af_currency')AS STRING), 'USD')) = cr.relative_currency
+
+  LEFT JOIN (
+    SELECT
+      appsflyer_id,
+      country_code as installed_country_code
+    FROM
+      `rockads-thirdparty.appsflyer.id6473276045_organic_in_app_events`
+    QUALIFY ROW_NUMBER() OVER(PARTITION BY appsflyer_id ORDER BY event_time ASC) = 1
+    ) usr_ct on isdr.appsflyer_id=usr_ct.appsflyer_id
+
+    WHERE DATE(event_time) >= '2025-07-24' and event_name = 'zt_payment_succes' and event_time < '${realtime_marketing.realtime_start_ts_calc}'
+
+  UNION ALL
+    SELECT
+    'ORGANIC' as campaign,
+    'ORGANIC' as af_adset,
+    'ORGANIC' as af_ad,
+    'ORGANIC' as af_ad_id,
+    'ORGANIC' as media_source,
+    'id6473276045' as appsflyer_os_id,
+    country_code,
+    DATE(install_time) AS event_date,
+    CAST(JSON_EXTRACT_SCALAR(event_value, '$.af_price')AS FLOAT64) AS event_value_af_price,
+    CAST(JSON_EXTRACT_SCALAR(event_value, '$.af_revenue')AS FLOAT64) AS event_value_af_revenue,
+    SAFE_DIVIDE(CAST(event_revenue AS FLOAT64), cr.currency_rate) as event_revenue
+  FROM
+    `rockads-thirdparty.realtime_appsflyer_events.id6473276045_events_latest`isdr
+
+  LEFT JOIN currency_rates cr ON DATE(isdr.event_time) = cr.date AND
+    IFNULL(event_revenue_currency, IFNULL(CAST(JSON_EXTRACT_SCALAR(isdr.event_value, '$.af_currency')AS STRING), 'USD')) = cr.relative_currency
+
+  LEFT JOIN (
+    SELECT
+      appsflyer_id,
+      country_code as installed_country_code
+    FROM
+      `rockads-thirdparty.appsflyer.id6473276045_organic_in_app_events`
+    QUALIFY ROW_NUMBER() OVER(PARTITION BY appsflyer_id ORDER BY event_time ASC) = 1
+    ) usr_ct on isdr.appsflyer_id=usr_ct.appsflyer_id
+
+    WHERE
+        event_time >= '${realtime_marketing.realtime_start_ts_calc}'
+        AND event_time <  '${realtime_marketing.realtime_end_ts_calc}'
+        AND media_source = 'organic'
+        and event_name = 'zt_payment_succes'
+
+
+  UNION ALL
+     SELECT
+        'ORGANIC' as campaign,
+        'ORGANIC' as af_adset,
+        'ORGANIC' as af_ad,
+        'ORGANIC' as af_ad_id,
+        'ORGANIC' as media_source,
+        'io_esim' as appsflyer_os_id,
+        installed_country_code as country_code,
+        DATE(install_time) AS event_date,
+        IFNULL(SAFE_CAST(JSON_EXTRACT_SCALAR(event_value, '$.af_price') AS FLOAT64), 0) AS event_value_af_price,
+        IFNULL(SAFE_CAST(JSON_EXTRACT_SCALAR(event_value, '$.af_revenue') AS FLOAT64), 0) AS event_value_af_revenue,
+        SAFE_DIVIDE(CAST(event_revenue AS FLOAT64), cr.currency_rate) as event_revenue
+      FROM
+        `${dataform.projectConfig.vars.rockadsProject}.appsflyer.io_esim_organic_in_app_events` isdr
+
+      LEFT JOIN currency_rates cr ON DATE(isdr.event_time) = cr.date AND
+        IFNULL(event_revenue_currency, IFNULL(CAST(JSON_EXTRACT_SCALAR(isdr.event_value, '$.af_currency')AS STRING), 'USD')) = cr.relative_currency
+
+      LEFT JOIN (
+        SELECT
+          appsflyer_id,
+          country_code as installed_country_code
+        FROM
+          `rockads-thirdparty.appsflyer.io_esim_organic_in_app_events`
+        QUALIFY ROW_NUMBER() OVER(PARTITION BY appsflyer_id ORDER BY event_time ASC) = 1
+        ) usr_ct on isdr.appsflyer_id=usr_ct.appsflyer_id
+
+      WHERE DATE(event_time) < '2025-07-24' and event_name != 'zt_payment_succes'
+
+
+    UNION ALL
+     SELECT
+        'ORGANIC' as campaign,
+        'ORGANIC' as af_adset,
+        'ORGANIC' as af_ad,
+        'ORGANIC' as af_ad_id,
+        'ORGANIC' as media_source,
+        'io_esim' as appsflyer_os_id,
+        installed_country_code as country_code,
+        DATE(install_time) AS event_date,
+        IFNULL(SAFE_CAST(JSON_EXTRACT_SCALAR(event_value, '$.af_price') AS FLOAT64), 0) AS event_value_af_price,
+        IFNULL(SAFE_CAST(JSON_EXTRACT_SCALAR(event_value, '$.af_revenue') AS FLOAT64), 0) AS event_value_af_revenue,
+        SAFE_DIVIDE(CAST(event_revenue AS FLOAT64), cr.currency_rate) as event_revenue
+      FROM
+        `${dataform.projectConfig.vars.rockadsProject}.appsflyer.io_esim_organic_in_app_events` isdr
+
+      LEFT JOIN currency_rates cr ON DATE(isdr.event_time) = cr.date AND
+        IFNULL(event_revenue_currency, IFNULL(CAST(JSON_EXTRACT_SCALAR(isdr.event_value, '$.af_currency')AS STRING), 'USD')) = cr.relative_currency
+
+      LEFT JOIN (
+        SELECT
+          appsflyer_id,
+          country_code as installed_country_code
+        FROM
+          `rockads-thirdparty.appsflyer.io_esim_organic_in_app_events`
+        QUALIFY ROW_NUMBER() OVER(PARTITION BY appsflyer_id ORDER BY event_time ASC) = 1
+        ) usr_ct on isdr.appsflyer_id=usr_ct.appsflyer_id
+      WHERE DATE(event_time) >= '2025-07-24' and event_name = 'zt_payment_succes' and event_time < '${realtime_marketing.realtime_start_ts_calc}'
+
+  UNION ALL
+    SELECT
+    'ORGANIC' as campaign,
+    'ORGANIC' as af_adset,
+    'ORGANIC' as af_ad,
+    'ORGANIC' as af_ad_id,
+    'ORGANIC' as media_source,
+    'io_esim' as appsflyer_os_id,
+    country_code,
+    DATE(install_time) AS event_date,
+    CAST(JSON_EXTRACT_SCALAR(event_value, '$.af_price')AS FLOAT64) AS event_value_af_price,
+    CAST(JSON_EXTRACT_SCALAR(event_value, '$.af_revenue')AS FLOAT64) AS event_value_af_revenue,
+    SAFE_DIVIDE(CAST(event_revenue AS FLOAT64), cr.currency_rate) as event_revenue
+  FROM
+    `rockads-thirdparty.realtime_appsflyer_events.io_esim_events_latest`isdr
+
+  LEFT JOIN currency_rates cr ON DATE(isdr.event_time) = cr.date AND
+    IFNULL(event_revenue_currency, IFNULL(CAST(JSON_EXTRACT_SCALAR(isdr.event_value, '$.af_currency')AS STRING), 'USD')) = cr.relative_currency
+
+  LEFT JOIN (
+    SELECT
+      appsflyer_id,
+      country_code as installed_country_code
+    FROM
+      `rockads-thirdparty.appsflyer.io_esim_organic_in_app_events`
+    QUALIFY ROW_NUMBER() OVER(PARTITION BY appsflyer_id ORDER BY event_time ASC) = 1
+    ) usr_ct on isdr.appsflyer_id=usr_ct.appsflyer_id
+
+    WHERE
+        event_time >= '${realtime_marketing.realtime_start_ts_calc}'
+        AND event_time <  '${realtime_marketing.realtime_end_ts_calc}'
+        AND media_source = 'organic'
+        and event_name = 'zt_payment_succes'
+
+
+    )
+SELECT
+  *
+FROM (
+  SELECT
+    campaign,
+    af_adset,
+    af_ad,
+    af_ad_id,
+    country_code,
+    media_source,
+    appsflyer_os_id,
+    event_date,
+    SUM(
+    IF
+      (event_value_af_revenue=0,0,event_value_af_price)) AS event_value_af_price,
+    SUM(event_value_af_revenue) AS event_value_af_revenue,
+    SUM(CAST(event_revenue AS FLOAT64)) event_revenue
+  FROM
+    main_raw_data
+  GROUP BY
+    ALL )

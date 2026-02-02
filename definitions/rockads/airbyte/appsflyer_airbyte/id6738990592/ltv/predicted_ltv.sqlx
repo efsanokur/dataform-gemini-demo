@@ -1,0 +1,81 @@
+config {
+  type: "table",
+    bigquery: {
+    partitionBy: "report_date",
+    clusterBy: ["country_code"]
+  },
+  database: `${dataform.projectConfig.vars.rockadsProject}`,
+  name: "id6738990592_revenue_predicted_ltv",
+  schema: "id6738990592_appsflyer_ds",
+  dependencies: ['id6738990592_revenues'],
+  tags: ['appsflyer_id6738990592_main']
+}
+
+SELECT main.*, ext.pLTV_60, ext.pLTV_90, ext.pLTV_120
+FROM
+  (SELECT
+  DATE(install_date) AS report_date,
+  campaign,
+IF
+  (campaign='ORGANIC', 'ORGANIC', ad_name) AS ad,
+IF
+  (campaign='ORGANIC', 'ORGANIC', ad_set) AS adset,
+  country AS country_code,
+  media_source,
+  IF(operating_system='ANDROID', 'com_videoai_effects', 'id6738990592') AS appsflyer_os_id,
+  SUM(predicted_ltv) AS pLTV_30,
+  SUM(predicted_ltv_coin) AS pLTV_coin_30,
+  SUM(predicted_ltv_subscription) AS pLTV_subscription_30,
+FROM (
+  SELECT
+    *,
+    _TABLE_SUFFIX AS table_suffix
+  FROM
+    `rockads-thirdparty.appsflyer_ltv.predictions_ltv_30_*`
+  QUALIFY
+    ROW_NUMBER() OVER(PARTITION BY install_date, country, operating_system, media_source, campaign, ad_name, ad_set, CAST(total_cost AS string),
+      CAST(total_clicks AS string),
+      CAST(total_impressions AS string),
+      CAST(predicted_ltv_coin AS string),
+      CAST(predicted_ltv_subscription AS string),
+      CAST(predicted_ltv AS string)
+    ORDER BY
+      install_date DESC) = 1)
+GROUP BY
+  campaign,
+  ad_name,
+  ad_set,
+  country,
+  media_source,
+  operating_system,
+  install_date,
+  table_suffix
+QUALIFY
+  ROW_NUMBER() OVER(PARTITION BY install_date, country, media_source,operating_system, campaign, ad_name, ad_set ORDER BY table_suffix DESC) = 1) main
+
+LEFT JOIN (SELECT
+
+  DATE(install_date) AS report_date,
+  campaign,
+IF
+  (campaign='ORGANIC', 'ORGANIC', ad_name) AS ad,
+IF
+  (campaign='ORGANIC', 'ORGANIC', ad_set) AS adset,
+  country AS country_code,
+  media_source,
+  IF(operating_system='ANDROID', 'com_videoai_effects', 'id6738990592') AS appsflyer_os_id,
+  SUM(pLTV_60) AS pLTV_60,
+  SUM(pLTV_90) AS pLTV_90,
+  SUM(pLTV_120) AS pLTV_120,
+
+FROM `rockads-thirdparty.appsflyer_ltv.videa_predictions_ltv_30_projected_120_weekly`
+GROUP BY ALL
+) ext on
+
+  main.report_date=ext.report_date
+  AND main.country_code=ext.country_code
+  AND main.campaign=ext.campaign
+  AND main.adset=ext.adset
+  AND main.ad=ext.ad
+  AND main.media_source=ext.media_source
+  AND main.appsflyer_os_id=ext.appsflyer_os_id

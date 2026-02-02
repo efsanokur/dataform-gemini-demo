@@ -1,0 +1,84 @@
+config {
+  type: "table",
+  bigquery: {
+    partitionBy: "transaction_date"
+  },
+  database: `${dataform.projectConfig.vars.rockadsProject}`,
+  name: "googlePlay_report_earnings",
+  schema: "thirdparty_datamarts",
+  tags: ['google_play_monthly']
+}
+
+SELECT
+  t0.transaction_date,
+  t0.product_id,
+  gpaan.app_name,
+  t0.product_title,
+  t0.sku_id,
+  CASE
+    WHEN t0.bucket_name IS NOT NULL THEN t1.company_name
+    ELSE IFNULL(t2.company_name, t2.name)
+END
+  AS company,
+  buyer_country AS country_code,
+  t3.name AS country,
+  t0.merchant_currency,
+  SUM(CAST(amount_merchant_currency AS FLOAT64)) AS total_amount,
+  SUM(CAST(amount_merchant_currency AS FLOAT64) / (CASE
+        WHEN merchant_currency = 'USD' THEN 1
+        ELSE currency_rate
+    END
+      )) total_amount_usd,
+  COUNT(DISTINCT (CASE
+        WHEN transaction_type = 'Charge' THEN description
+        ELSE NULL
+    END
+      )) charged_order_count,
+  COUNT(DISTINCT (CASE
+        WHEN transaction_type = 'Charge refund' THEN description
+        ELSE NULL
+    END
+      )) refund_order_count
+FROM
+  `${dataform.projectConfig.vars.rockadsProject}.googlePlay.googlePlay_earnings_*`t0
+LEFT JOIN
+  `${dataform.projectConfig.vars.rockadsProject}.mapping_tables.google_play_app_account_names` gpaan
+ON
+  gpaan.product_id = t0.product_id
+LEFT JOIN
+  `${dataform.projectConfig.vars.rockadsProject}.googlePlay.googlePlay_tokens` t1
+ON
+  t0.bucket_name = t1.bucket_name
+LEFT JOIN (
+  SELECT
+    t0.*,
+    t1.company_name
+  FROM
+    `${dataform.projectConfig.vars.rockadsProject}.mapping_tables.googlePlay_product_token` t0
+  LEFT JOIN
+    `${dataform.projectConfig.vars.rockadsProject}.googlePlay.googlePlay_tokens` t1
+  ON
+    t0.bucket_name = t1.bucket_name) t2
+ON
+  t2.product_id = t0.product_id
+LEFT JOIN
+  `${dataform.projectConfig.vars.rockadsProject}.mapping_tables.countries` t3
+ON
+  t0.buyer_country = t3.short_code
+LEFT JOIN
+  `${dataform.projectConfig.vars.rockadsProject}.mapping_tables.currency_rates_*` t4
+ON
+  t4.date = t0.transaction_date
+  AND t4.relative_currency = t0.merchant_currency
+GROUP BY
+  t0.transaction_date,
+  t0.product_id,
+  gpaan.app_name,
+  t0.product_title,
+  t0.sku_id,
+  company,
+  country_code,
+  country,
+  t0.merchant_currency
+
+

@@ -1,0 +1,25 @@
+config {
+  type: "table",
+  database: `${dataform.projectConfig.vars.rockadsProject}`,
+  name: "id6736979983_facebook_links_urls",
+  schema: "id6736979983_appsflyer_ds",
+  dependencies: ['id6736979983_platforms_merged_metrics_all_cost_geo_unique'],
+  tags: ['appsflyer_id6736979983_main']
+}
+SELECT * EXCEPT(report_date) FROM (
+SELECT
+DISTINCT
+    ad_name AS ad,
+    ad_insight_date_start AS report_date,
+    'id6736979983' AS app_id,
+    cast(null as string) as appsflyer_os_id,
+    'Facebook Ads' as media_source,
+    thumbnail_url,
+    video_url,
+  FROM
+    `${dataform.projectConfig.vars.rockadsProject}.fb_airbyte_datamarts.ads_insights_by_country_merged_1186788694772131_shorten`
+
+
+  GROUP BY
+    ALL
+) QUALIFY row_number() over(partition by ad ORDER BY report_date desc) = 1

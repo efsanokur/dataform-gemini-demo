@@ -1,0 +1,104 @@
+config {
+  type: "operations",
+  database: `${dataform.projectConfig.vars.rockadsProject}`,
+  name: "id1662905686_cost_dm",
+  schema: "id1662905686_appsflyer_ds",
+  dependencies: ['id1662905686_single_cost_dm_all_geo'],
+  tags: ['appsflyer_id1662905686_main']
+}
+
+MERGE INTO
+`${dataform.projectConfig.vars.rockadsProject}.id1662905686_appsflyer_ds.id1662905686_cost_dm` AS TARGET
+USING
+  (
+  WITH
+    cost_dm AS (
+    SELECT
+      DATE(date) as report_date,
+      timezone as cost_etl_timezone,
+      TIMESTAMP_TRUNC(_dl_partition_time, DAY) as cost_etl_dl_partition_time_calc,
+      IFNULL(media_source, 'None') as media_source,
+      cast(null as string) as appsflyer_os_id,
+      'id1662905686' as app_id,
+      IFNULL(campaign, 'None') as campaign,
+      IFNULL(adset, IF(media_source = 'applovin_int', '_DEFAULT', 'None')) as adset,
+      IFNULL(ad, 'None') as ad,
+      IFNULL(geo, 'None') as geo,
+      v,
+      currency,
+      SUM(cost) total_cost,
+      SUM(installs) total_installs,
+      SUM(clicks) total_clicks,
+      SUM(impressions) AS total_impressions,
+      SUM(re_attributions) AS total_re_attributions,
+      SUM(re_engagements) AS total_re_engagements,
+      SUM(video_completions) AS total_video_completions,
+      SUM(video_25p_views) AS total_video_25p_views,
+      SUM(video_50p_views) AS total_video_50p_views,
+      SUM(video_75p_views) AS total_video_75p_views
+    FROM
+     `${dataform.projectConfig.vars.rockadsProject}.appsflyer_data_locker_id6738388891.cost_etl_all_cost_geo`
+    WHERE
+      TIMESTAMP_TRUNC(_dl_partition_time, DAY) >= TIMESTAMP(DATE_SUB(CURRENT_DATE(), INTERVAL 2 DAY))
+    GROUP BY
+      ALL )
+  SELECT
+    * EXCEPT(v,
+      cost_etl_dl_partition_time_calc)
+  FROM
+    cost_dm
+  QUALIFY
+    ROW_NUMBER() OVER(PARTITION BY report_date, media_source, app_id, campaign, adset, ad, geo, currency ORDER BY cost_etl_dl_partition_time_calc DESC, v DESC) = 1) AS SOURCE
+ON
+  target.report_date = source.report_date AND
+  target.cost_etl_timezone = source.cost_etl_timezone AND
+  target.media_source = source.media_source AND
+  target.app_id = source.app_id AND
+  target.campaign = source.campaign AND
+  target.adset = source.adset AND
+  target.ad = source.ad AND
+  target.geo = source.geo AND
+  target.currency = source.currency
+    WHEN MATCHED THEN UPDATE SET
+      target.total_cost = source.total_cost,
+      target.total_installs = source.total_installs,
+      target.total_clicks = source.total_clicks,
+      target.total_impressions = source.total_impressions,
+      target.total_re_attributions = source.total_re_attributions,
+      target.total_re_engagements = source.total_re_engagements,
+      target.total_video_completions = source.total_video_completions,
+      target.total_video_25p_views = source.total_video_25p_views,
+      target.total_video_50p_views = source.total_video_50p_views,
+      target.total_video_75p_views = source.total_video_75p_views
+  WHEN NOT MATCHED
+  THEN
+INSERT
+  (report_date,
+    cost_etl_timezone,
+    media_source,
+    app_id,
+    campaign,
+    adset,
+    ad,
+    geo,
+    currency,
+    total_cost,
+    total_installs,
+    total_clicks,
+    total_impressions,
+    total_re_attributions,
+    total_re_engagements,
+    total_video_completions,
+    total_video_25p_views,
+    total_video_50p_views,
+    total_video_75p_views
+    )
+VALUES
+  (source.report_date, source.cost_etl_timezone, source.media_source, source.app_id, source.campaign, source.adset, source.ad, source.geo, source.currency, source.total_cost, source.total_installs, source.total_clicks,
+  source.total_impressions,
+  source.total_re_attributions,
+  source.total_re_engagements,
+  source.total_video_completions,
+  source.total_video_25p_views,
+  source.total_video_50p_views,
+  source.total_video_75p_views);

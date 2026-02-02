@@ -1,0 +1,54 @@
+config {
+  type: "table",
+    bigquery: {
+    partitionBy: "event_date",
+    clusterBy: ["country_code"]
+  },
+  database: `${dataform.projectConfig.vars.rockadsProject}`,
+  name: "teli_organic_revenues",
+  schema: "teli_adjust_ds",
+  tags: ['adjust_teli_main']
+}
+
+WITH main_raw_data AS (
+    SELECT
+        IF(media_source='Organic', 'ORGANIC', IF(campaign_name='Organic', 'ORGANIC', campaign_name)) as campaign,
+        IF(campaign_name='Organic', 'ORGANIC',IF(media_source='Organic', 'ORGANIC', IF(adgroup_name='Organic', 'ORGANIC', adgroup_name))) as af_adset,
+        IF(campaign_name='Organic', 'ORGANIC',IF(media_source='Organic', 'ORGANIC', IF(ad_name='Organic', 'ORGANIC', ad_name))) as af_ad,
+        NULL AS  af_ad_id,
+        CASE
+          WHEN media_source in ('Facebook Installs','Facebook','facebook','restricted') then 'Facebook Ads'
+          WHEN media_source = 'Organic' then 'ORGANIC'
+         ELSE media_source end as media_source,
+        adjust_os_id,
+        UPPER(country_code) AS country_code,
+        DATE(install_time) AS event_date,
+        NULL AS event_value_af_price,
+        NULL AS event_value_af_revenue,
+        SAFE_CAST(revenue_usd AS FLOAT64) event_revenue
+      FROM
+        `rockads-thirdparty.teli_adjust_ds.all_events`
+      WHERE lower(media_source) = 'organic'
+
+    )
+SELECT
+  *
+FROM (
+  SELECT
+    campaign,
+    af_adset,
+    af_ad,
+    af_ad_id,
+    country_code,
+    media_source,
+    adjust_os_id,
+    event_date,
+    SUM(
+    IF
+      (event_value_af_revenue=0,0,event_value_af_price)) AS event_value_af_price,
+    SUM(event_value_af_revenue) AS event_value_af_revenue,
+    SUM(CAST(event_revenue AS FLOAT64)) event_revenue
+  FROM
+    main_raw_data
+  GROUP BY
+    ALL )

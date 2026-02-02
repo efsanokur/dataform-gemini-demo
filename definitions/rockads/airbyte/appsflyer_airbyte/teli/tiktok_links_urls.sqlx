@@ -1,0 +1,23 @@
+config {
+  type: "table",
+  database: `${dataform.projectConfig.vars.rockadsProject}`,
+  name: "teli_tiktok_links_urls",
+  schema: "teli_adjust_ds",
+  dependencies: ['teli_facebook_links_urls'],
+  tags: ['adjust_teli_main']
+}
+SELECT * EXCEPT(report_date) FROM (
+SELECT
+DISTINCT
+    ad_name AS ad,
+    stat_time_day AS report_date,
+    'teli' AS app_id,
+    'tiktokglobal_int' as media_source,
+    cast(null as string) as adjust_os_id,
+    video_thumbnail_url as thumbnail_url,
+    video_url,
+  FROM
+    `${dataform.projectConfig.vars.rockadsProject}.tiktok_airbyte_datamarts.ads_audience_reports_by_country_merged_teli`
+  GROUP BY
+    ALL
+) QUALIFY row_number() over(partition by ad ORDER BY report_date desc) = 1

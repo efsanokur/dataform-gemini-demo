@@ -1,0 +1,61 @@
+config {
+  type: "table",
+    bigquery: {
+    partitionBy: "event_date",
+    clusterBy: ["country_code"]
+  },
+  database: `${dataform.projectConfig.vars.rockadsProject}`,
+  name: "id1363478842_activity_event_counts_unique",
+  schema: "id1363478842_appsflyer_ds",
+  dependencies: ['id1363478842_activity_revenues'],
+  tags: ['appsflyer_id1363478842_main']
+}
+
+WITH main_raw_data AS (
+SELECT  campaign, af_adset, af_ad, af_ad_id, event_name,IF(media_source = 'restricted', 'Facebook Ads', media_source) as media_source,
+'id1363478842' as appsflyer_os_id,
+country_code,customer_user_id,
+event_revenue,
+DATE(event_time) as event_date,
+FROM `${dataform.projectConfig.vars.rockadsProject}.appsflyer.id1363478842_in_app_events`
+
+UNION ALL 
+SELECT  campaign, af_adset, af_ad, af_ad_id, event_name,IF(media_source = 'restricted', 'Facebook Ads', media_source) as media_source,
+'com_positivise_moyra' as appsflyer_os_id,
+country_code,customer_user_id,
+event_revenue,
+DATE(event_time) as event_date,
+FROM `${dataform.projectConfig.vars.rockadsProject}.appsflyer.com_positivise_moyra_in_app_events`
+ 
+)
+SELECT * FROM (
+SELECT campaign, af_adset, af_ad, af_ad_id, country_code,
+media_source, appsflyer_os_id, event_name,
+event_date,
+count(event_name) AS event_count,
+count(distinct customer_user_id) AS unique_event_count,
+sum(CAST(event_revenue AS FLOAT64)) AS revenue,
+FROM main_raw_data 
+GROUP BY ALL
+)
+PIVOT (
+  MAX(event_count) as activity_event_count,
+  MAX(unique_event_count)  as activity_unique_event_count,
+  MAX(revenue) as activity_revenue FOR event_name IN (
+    'paywallShowed',
+    'paymentInit',
+    'rc_renewal_event',
+    'rc_trial_converted_event',
+    'rc_expiration_event',
+    'rc_cancellation_event',
+    'rc_billing_issue_event',
+    'rc_initial_purchase_event',
+    'rc_product_change_event',
+    'rc_trial_started_event',
+    'rc_trial_cancelled_event',
+    'WebToAppInstall',
+    'rc_non_subscription_purchase_event',
+    'af_purchase',
+    'package_purchase'
+  )
+)

@@ -1,0 +1,31 @@
+config {
+  type: "table",
+  bigquery: {
+    partitionBy: "event_date",
+    clusterBy: ["country_code"]
+  },
+  database: `${dataform.projectConfig.vars.rockadsProject}`,
+  name: "appsflyer_meta_summary",
+  schema: "appsflyer_airbyte_datamarts",
+  tags: ['appsflyer_airbyte_pipeline']
+}
+
+SELECT
+  DATE(Current_Date_manual) AS event_date,
+  Campaign,
+  Campaign_ID,
+  Ad,
+  Ad_ID,
+  Media_Source,
+  GEO AS country_code,
+  SUM(Cost) AS total_cost,
+  SUM(Revenue) AS total_revenue,
+  AVG(ROI) AS avg_roi,
+  SUM(Impressions) AS total_impressions,
+  SUM(Clicks) AS total_clicks,
+  SUM(Installs) AS total_installs,
+  SUM(Uninstalls) AS total_uninstalls
+FROM
+  `${dataform.projectConfig.vars.rockadsProject}.appsflyer.master_metrics_*`
+GROUP BY
+  ALL

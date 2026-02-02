@@ -1,0 +1,61 @@
+config {
+  type: "table",
+  database: `${dataform.projectConfig.vars.rockadsProject}`,
+  name: "zotlo_aggregated",
+  schema: "datacan_thirdparty_api_datamarts",
+  bigquery: {
+        partitionBy: "report_date",
+        clusterBy: ["app_name"]
+    },
+  tags: ['datacan_zotlo_daily']
+}
+
+
+SELECT
+  date AS report_date,
+  app_name,
+  country,
+  provider,
+  currency,
+  transaction_type,
+  'purchase' AS state,
+  ROUND(SUM(total_amount),2) AS total_amount,
+  ROUND(SUM(total_amount_usd),2) AS total_amount_usd,
+  SUM(event_count) AS quantity
+FROM
+  `zotlo-dataland.zotlo_datamarts.purchase_count_daily`
+WHERE
+  status = 'success'
+GROUP BY
+  1,
+  2,
+  3,
+  4,
+  5,
+  6,
+  7
+
+UNION ALL
+SELECT
+  date AS report_date,
+  app_name,
+  country,
+  provider_name,
+  currency,
+  transaction_type,
+  'refund' AS state,
+  -ROUND(SUM(total_amount),2) AS total_amount,
+  -ROUND(SUM(total_amount_usd),2) AS total_amount_usd,
+  SUM(total_transaction_count) AS quantity
+FROM
+  `zotlo-dataland.zotlo_datamarts.refund_count_daily`
+WHERE
+  status = 'success'
+GROUP BY
+  1,
+  2,
+  3,
+  4,
+  5,
+  6,
+  7

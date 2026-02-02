@@ -1,0 +1,155 @@
+config {
+  type: "table",
+  bigquery: {
+    partitionBy: "report_date"
+  },
+  database: `${dataform.projectConfig.vars.rockadsProject}`,
+  name: "itunes_report_finance",
+  schema: "thirdparty_datamarts",
+  tags: ['itunes_monthly']
+}
+
+WITH main_data_merged AS (
+SELECT
+  CASE
+    WHEN EXTRACT(DAY FROM DATE(start_date)) >= 20 THEN DATE_TRUNC(DATE_ADD(DATE(start_date), INTERVAL 1 MONTH), MONTH)
+    ELSE DATE_TRUNC(DATE(start_date),MONTH)
+END
+  AS report_date,
+  fp.account_number,
+  ia.account_name AS account_name,
+  ia.company_name,
+  fp.apple_identifier,
+  ian.app_name,
+  fp.vendor_identifier AS sku_id,
+  title,
+  country_of_sale,
+  c.name AS country,
+  customer_currency,
+  SUM(CAST(extended_partner_share AS float64)) AS total_partner_share,
+  SUM(CAST(extended_partner_share AS float64) / (CASE
+        WHEN fp.customer_currency = 'USD' THEN 1
+        ELSE cr.currency_rate
+    END
+      )) AS total_partner_share_usd,
+  SUM(CASE
+      WHEN CAST(quantity AS float64)>0 THEN CAST(quantity AS float64)
+      ELSE 0
+  END
+    ) charged_order_count,
+  SUM(CASE
+      WHEN CAST(quantity AS float64)<0 THEN -1*CAST(quantity AS float64)
+      ELSE 0
+  END
+    ) refund_order_count
+FROM
+  `rockads-thirdparty.itunes.itunes_finance_report_*` fp
+LEFT JOIN
+  `rockads-thirdparty.mapping_tables.itunes_account_names` ia
+ON
+  fp.account_number = ia.account_number
+  AND ia.account_type = 'finance'
+LEFT JOIN
+  `rockads-thirdparty.mapping_tables.countries` c
+ON
+  c.short_code = fp.country_of_sale
+LEFT JOIN
+  `rockads-thirdparty.mapping_tables.currency_rates_*` cr
+ON
+  cr.date = fp.end_date
+  AND cr.relative_currency = fp.customer_currency
+LEFT JOIN
+  `rockads-thirdparty.mapping_tables.itunes_app_names` ian
+ON
+  ian.apple_identifier = fp.apple_identifier
+GROUP BY
+  report_date,
+  fp.account_number,
+  account_name,
+  ia.company_name,
+  fp.apple_identifier,
+  ian.app_name,
+  sku_id,
+  title,
+  country_of_sale,
+  country,
+  customer_currency
+
+UNION ALL
+SELECT
+  CASE
+    WHEN EXTRACT(DAY FROM DATE(start_date)) >= 20 THEN DATE_TRUNC(DATE_ADD(DATE(start_date), INTERVAL 1 MONTH), MONTH)
+    ELSE DATE_TRUNC(DATE(start_date),MONTH)
+END
+  AS report_date,
+  vendors.account_number,
+  ia.account_name AS account_name,
+  ia.company_name,
+  SAFE_CAST(fp.apple_identifier AS STRING),
+  ian.app_name,
+  fp.vendor_identifier AS sku_id,
+  title,
+  country_of_sale,
+  c.name AS country,
+  customer_currency,
+  SUM(CAST(extended_partner_share AS float64)) AS total_partner_share,
+  SUM(CAST(extended_partner_share AS float64) / (CASE
+        WHEN fp.customer_currency = 'USD' THEN 1
+        ELSE cr.currency_rate
+    END
+      )) AS total_partner_share_usd,
+  SUM(CASE
+      WHEN CAST(quantity AS float64)>0 THEN CAST(quantity AS float64)
+      ELSE 0
+  END
+    ) charged_order_count,
+  SUM(CASE
+      WHEN CAST(quantity AS float64)<0 THEN -1*CAST(quantity AS float64)
+      ELSE 0
+  END
+    ) refund_order_count
+FROM
+  `rockads-thirdparty.itunes_connect_api.itunes_finance_report_*` fp
+LEFT JOIN (
+      SELECT DISTINCT vendor_number, account_number
+      FROM `rockads-thirdparty.itunes.itunes_vendors`) vendors
+ON fp.vendor_number=vendors.vendor_number
+
+LEFT JOIN
+  `rockads-thirdparty.mapping_tables.itunes_account_names` ia
+ON
+  vendors.account_number = ia.account_number
+  AND ia.account_type = 'finance'
+LEFT JOIN
+  `rockads-thirdparty.mapping_tables.countries` c
+ON
+  c.short_code = fp.country_of_sale
+LEFT JOIN
+  `rockads-thirdparty.mapping_tables.currency_rates_*` cr
+ON
+  cr.date = fp.end_date
+  AND cr.relative_currency = fp.customer_currency
+LEFT JOIN
+  `rockads-thirdparty.mapping_tables.itunes_app_names` ian
+ON
+  ian.apple_identifier = SAFE_CAST(fp.apple_identifier AS STRING)
+WHERE vendors.vendor_number in (
+  # Kompanion
+  '87864986'
+  )
+
+GROUP BY
+  report_date,
+  vendors.account_number,
+  account_name,
+  ia.company_name,
+  fp.apple_identifier,
+  ian.app_name,
+  sku_id,
+  title,
+  country_of_sale,
+  country,
+  customer_currency
+)
+SELECT DISTINCT * FROM main_data_merged
+

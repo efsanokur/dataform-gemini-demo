@@ -1,0 +1,156 @@
+config {
+  type: "table",
+  bigquery: {
+    partitionBy: "ad_insight_date_start",
+    clusterBy: ["country"]
+  },
+  database: `${dataform.projectConfig.vars.rockadsProject}`,
+  name: "ads_insights_by_country_actions_773901696065588_stliyco",
+  schema: "fb_airbyte_datamarts",
+  tags: ['facebook_airbyte_773901696065588_stliyco']
+}
+
+WITH main_data as (
+SELECT
+  created_time as ad_insight_created_time,
+  date_start,
+  account_id,
+  account_name,
+  account_currency,
+  ad_id,
+  ad_name,
+  country,
+  campaign_name,
+  campaign_id,
+  objective,
+JSON_EXTRACT_ARRAY(actions) AS json_array_actions,
+ FROM `${dataform.projectConfig.vars.rockadsProject}.fb_airbyte._773901696065588_stliyco_ads_insights_country`
+),
+clean_ads AS (
+  SELECT
+    id,
+    campaign_id,
+    adset_id,
+    last_updated_by_app_id,
+    status as ad_status,
+    name AS ad_name,
+    created_time
+  FROM `${dataform.projectConfig.vars.rockadsProject}.fb_airbyte._773901696065588_stliyco_ads`
+),
+clean_campaigns AS (
+  SELECT
+    id AS campaign_id,
+    name AS campaign_name,
+    objective,
+    start_time,
+    stop_time
+  FROM `${dataform.projectConfig.vars.rockadsProject}.fb_airbyte._773901696065588_stliyco_campaigns`
+),
+
+clean_ad_sets AS (
+  SELECT
+    id AS adset_id,
+    start_time,
+    end_time,
+    name AS adset_name,
+    campaign_id,
+    effective_status,
+    bid_strategy,
+    daily_budget,
+    bid_amount
+  FROM `${dataform.projectConfig.vars.rockadsProject}.fb_airbyte._773901696065588_stliyco_ad_sets`
+)
+
+
+SELECT
+  ad_id,
+  ad_insight_created_time,
+  ad_insight_date_start,
+  account_id,
+  account_name,
+  account_currency,
+  country,
+  objective,
+  ad_name,
+  last_updated_by_app_id,
+  ad_status,
+  adset_name,
+  adset_effective_status,
+  adset_bid_strategy,
+  adset_daily_budget,
+  adset_start_time,
+  adset_end_time,
+  campaign_id,
+  campaign_name,
+  campaign_start_time,
+  campaign_stop_time,
+SUM(CAST(post_engagement AS INT64)) as action_count_post_engagement,
+SUM(CAST(page_engagement AS INT64)) as action_count_page_engagement,
+SUM(CAST(link_click AS INT64)) as action_count_link_click,
+SUM(CAST(post_reaction AS INT64)) as action_count_post_reaction,
+SUM(CAST(landing_page_view AS INT64)) as action_count_landing_page_view,
+SUM(CAST(purchase AS INT64)) as action_count_purchase,
+SUM(CAST(web_in_store_purchase AS INT64)) as action_count_web_in_store_purchaset,
+SUM(CAST(omni_add_to_cart AS INT64)) as action_count_omni_add_to_cart,
+
+SUM(CAST(add_to_cart AS INT64)) as action_count_add_to_cart,
+SUM(CAST(onsite_web_app_add_to_cart AS INT64)) as action_count_onsite_web_app_add_to_cart,
+SUM(CAST(onsite_web_add_to_cart AS INT64)) as action_count_onsite_web_add_to_cart,
+SUM(CAST(onsite_web_purchase AS INT64)) as action_count_onsite_web_purchase,
+SUM(CAST(onsite_web_app_purchase AS INT64)) as action_count_onsite_web_app_purchase,
+SUM(CAST(fb_pixel_add_to_cart AS INT64)) as action_count_fb_pixel_add_to_cart,
+SUM(CAST(fb_pixel_purchase AS INT64)) as action_count_fb_pixel_purchase,
+SUM(CAST(omni_purchase AS INT64)) as action_count_omni_purchase,
+SUM(CAST(omni_app_install AS INT64)) as action_count_omni_app_install,
+SUM(CAST(mobile_app_install AS INT64)) as action_count_mobile_app_install,
+SUM(CAST(app_install AS INT64)) as action_count_app_install,
+SUM(CAST(fb_mobile_purchase AS INT64)) as action_count_fb_mobile_purchase,
+
+FROM (
+SELECT
+  i.ad_id,
+  i.ad_insight_created_time,
+  i.date_start as ad_insight_date_start,
+  i.account_id,
+  i.account_name,
+  i.account_currency,
+  i.country,
+  i.objective,
+  cds.ad_name,
+  cds.last_updated_by_app_id,
+  cds.ad_status,
+  sa.adset_name,
+  sa.effective_status as adset_effective_status,
+  sa.bid_strategy as adset_bid_strategy,
+  sa.daily_budget as adset_daily_budget,
+  sa.start_time as adset_start_time,
+  sa.end_time as adset_end_time,
+  ca.campaign_id,
+  ca.campaign_name,
+  ca.start_time as campaign_start_time,
+  ca.stop_time as campaign_stop_time,
+CASE WHEN JSON_EXTRACT_SCALAR(actions_element, '$.action_type') = 'post_engagement' THEN JSON_EXTRACT_SCALAR(actions_element, '$.value') ELSE NULL END AS post_engagement,
+CASE WHEN JSON_EXTRACT_SCALAR(actions_element, '$.action_type') = 'page_engagement' THEN JSON_EXTRACT_SCALAR(actions_element, '$.value') ELSE NULL END AS page_engagement,
+CASE WHEN JSON_EXTRACT_SCALAR(actions_element, '$.action_type') = 'link_click' THEN JSON_EXTRACT_SCALAR(actions_element, '$.value') ELSE NULL END AS link_click,
+CASE WHEN JSON_EXTRACT_SCALAR(actions_element, '$.action_type') = 'post_reaction' THEN JSON_EXTRACT_SCALAR(actions_element, '$.value') ELSE NULL END AS post_reaction,
+CASE WHEN JSON_EXTRACT_SCALAR(actions_element, '$.action_type') = 'landing_page_view' THEN JSON_EXTRACT_SCALAR(actions_element, '$.value') ELSE NULL END AS landing_page_view,
+CASE WHEN JSON_EXTRACT_SCALAR(actions_element, '$.action_type') = 'purchase' THEN JSON_EXTRACT_SCALAR(actions_element, '$.value') ELSE NULL END AS purchase,
+CASE WHEN JSON_EXTRACT_SCALAR(actions_element, '$.action_type') = 'web_in_store_purchase' THEN JSON_EXTRACT_SCALAR(actions_element, '$.value') ELSE NULL END AS web_in_store_purchase,
+CASE WHEN JSON_EXTRACT_SCALAR(actions_element, '$.action_type') = 'omni_add_to_cart' THEN JSON_EXTRACT_SCALAR(actions_element, '$.value') ELSE NULL END AS omni_add_to_cart,
+CASE WHEN JSON_EXTRACT_SCALAR(actions_element, '$.action_type') = 'add_to_cart' THEN JSON_EXTRACT_SCALAR(actions_element, '$.value') ELSE NULL END AS add_to_cart,
+CASE WHEN JSON_EXTRACT_SCALAR(actions_element, '$.action_type') = 'onsite_web_app_add_to_cart' THEN JSON_EXTRACT_SCALAR(actions_element, '$.value') ELSE NULL END AS onsite_web_app_add_to_cart,
+CASE WHEN JSON_EXTRACT_SCALAR(actions_element, '$.action_type') = 'onsite_web_add_to_cart' THEN JSON_EXTRACT_SCALAR(actions_element, '$.value') ELSE NULL END AS onsite_web_add_to_cart,
+CASE WHEN JSON_EXTRACT_SCALAR(actions_element, '$.action_type') = 'onsite_web_purchase' THEN JSON_EXTRACT_SCALAR(actions_element, '$.value') ELSE NULL END AS onsite_web_purchase,
+CASE WHEN JSON_EXTRACT_SCALAR(actions_element, '$.action_type') = 'onsite_web_app_purchase' THEN JSON_EXTRACT_SCALAR(actions_element, '$.value') ELSE NULL END AS onsite_web_app_purchase,
+CASE WHEN JSON_EXTRACT_SCALAR(actions_element, '$.action_type') = 'offsite_conversion.fb_pixel_add_to_cart' THEN JSON_EXTRACT_SCALAR(actions_element, '$.value') ELSE NULL END AS fb_pixel_add_to_cart,
+CASE WHEN JSON_EXTRACT_SCALAR(actions_element, '$.action_type') = 'offsite_conversion.fb_pixel_purchase' THEN JSON_EXTRACT_SCALAR(actions_element, '$.value') ELSE NULL END AS fb_pixel_purchase,
+CASE WHEN JSON_EXTRACT_SCALAR(actions_element, '$.action_type') = 'omni_purchase' THEN JSON_EXTRACT_SCALAR(actions_element, '$.value') ELSE NULL END AS omni_purchase,
+CASE WHEN JSON_EXTRACT_SCALAR(actions_element, '$.action_type') = 'omni_app_install' THEN JSON_EXTRACT_SCALAR(actions_element, '$.value') ELSE NULL END AS omni_app_install,
+CASE WHEN JSON_EXTRACT_SCALAR(actions_element, '$.action_type') = 'mobile_app_install' THEN JSON_EXTRACT_SCALAR(actions_element, '$.value') ELSE NULL END AS mobile_app_install,
+CASE WHEN JSON_EXTRACT_SCALAR(actions_element, '$.action_type') = 'app_install' THEN JSON_EXTRACT_SCALAR(actions_element, '$.value') ELSE NULL END AS app_install,
+CASE WHEN JSON_EXTRACT_SCALAR(actions_element, '$.action_type') = 'app_custom_event.fb_mobile_purchase' THEN JSON_EXTRACT_SCALAR(actions_element, '$.value') ELSE NULL END AS fb_mobile_purchase,
+from main_data i, UNNEST(json_array_actions) as actions_element
+LEFT JOIN clean_ads cds ON i.ad_id = cds.id
+LEFT JOIN clean_campaigns ca ON cds.campaign_id = ca.campaign_id
+LEFT JOIN clean_ad_sets sa ON cds.adset_id = sa.adset_id
+)GROUP BY ALL

@@ -1,0 +1,383 @@
+config {
+  type: "table",
+    bigquery: {
+    partitionBy: "report_date",
+    clusterBy: ["app_id"]
+  },
+  database: `${dataform.projectConfig.vars.rockadsProject}`,
+  name: "all_platforms_merged_metrics_all_cost_geo_unique",
+  schema: "all_appsflyer_ds",
+  tags: ['appsflyer_all_apps_main_old']
+}
+
+-- AI Cleaner
+SELECT
+  report_date,
+  app_id,
+  geo,
+  campaign,
+  ad,
+  CASE WHEN media_source = 'facebook' then 'Facebook Ads' ELSE media_source end as media_source,
+  appsflyer_os_id,
+  thumbnail_url,
+  video_url,
+  SUM(rc_trial_converted_event) AS rc_trial_converted_event,
+  SUM(rc_renewal_event) AS rc_renewal_event,
+  SUM(rc_cancellation_event) AS rc_cancellation_event,
+  SUM(rc_trial_started_event) AS rc_trial_started_event,
+  SUM(rc_trial_cancelled_event) AS rc_trial_cancelled_event,
+  SUM(rc_initial_purchase_event) AS rc_initial_purchase_event,
+  SUM(rc_non_subscription_purchase_event) AS rc_non_subscription_purchase_event,
+  SUM(rc_expiration_event) AS rc_expiration_event,
+  SUM(rc_billing_issue_event) AS rc_billing_issue_event,
+  SUM(rc_product_change_event) AS rc_product_change_event,
+  NULL AS af_purchase,
+  NULL AS package_purchase,
+
+  SUM(unique_rc_trial_converted_event) AS unique_rc_trial_converted_event,
+  SUM(unique_rc_renewal_event) AS unique_rc_renewal_event,
+  SUM(unique_rc_cancellation_event) AS unique_rc_cancellation_event,
+  SUM(unique_rc_trial_started_event) AS unique_rc_trial_started_event,
+  SUM(unique_rc_trial_cancelled_event) AS unique_rc_trial_cancelled_event,
+  SUM(unique_rc_initial_purchase_event) AS unique_rc_initial_purchase_event,
+  SUM(unique_rc_non_subscription_purchase_event) AS unique_rc_non_subscription_purchase_event,
+  SUM(unique_rc_expiration_event) AS unique_rc_expiration_event,
+  SUM(unique_rc_billing_issue_event) AS unique_rc_billing_issue_event,
+  SUM(unique_rc_product_change_event) AS unique_rc_product_change_event,
+  NULL AS unique_af_purchase,
+  NULL AS unique_package_purchase,
+
+  SUM(event_revenue) AS event_revenue,
+  SUM(total_cost) AS total_cost,
+  SUM(total_clicks) AS total_clicks,
+  SUM(total_installs) AS total_installs,
+  SUM(total_impressions) AS total_impressions,
+  SUM(total_re_attributions) AS total_re_attributions,
+  SUM(total_re_engagements) AS total_re_engagements,
+  SUM(total_video_completions) AS total_video_completions,
+  SUM(total_video_25p_views) AS total_video_25p_views,
+  SUM(total_video_50p_views) AS total_video_50p_views,
+  SUM(total_video_75p_views) AS total_video_75p_views
+FROM
+  `${dataform.projectConfig.vars.rockadsProject}.id6738388891_appsflyer_ds.id6738388891_platforms_merged_metrics_all_cost_geo_unique_with_links`
+GROUP BY ALL
+
+-- AI Videa IOS
+UNION ALL
+SELECT
+  report_date,
+  app_id,
+  geo,
+  campaign,
+  ad,
+  CASE WHEN media_source = 'facebook' then 'Facebook Ads' ELSE media_source end as media_source,
+  appsflyer_os_id,
+  thumbnail_url,
+  video_url,
+  SUM(rc_trial_converted_event) AS rc_trial_converted_event,
+  SUM(rc_renewal_event) AS rc_renewal_event,
+  SUM(rc_cancellation_event) AS rc_cancellation_event,
+  SUM(rc_trial_started_event) AS rc_trial_started_event,
+  SUM(rc_trial_cancelled_event) AS rc_trial_cancelled_event,
+  SUM(rc_initial_purchase_event) AS rc_initial_purchase_event,
+  SUM(rc_non_subscription_purchase_event) AS rc_non_subscription_purchase_event,
+  SUM(rc_expiration_event) AS rc_expiration_event,
+  SUM(rc_billing_issue_event) AS rc_billing_issue_event,
+  SUM(rc_product_change_event) AS rc_product_change_event,
+  NULL AS af_purchase,
+  NULL AS package_purchase,
+
+  SUM(unique_rc_trial_converted_event) AS unique_rc_trial_converted_event,
+  SUM(unique_rc_renewal_event) AS unique_rc_renewal_event,
+  SUM(unique_rc_cancellation_event) AS unique_rc_cancellation_event,
+  SUM(unique_rc_trial_started_event) AS unique_rc_trial_started_event,
+  SUM(unique_rc_trial_cancelled_event) AS unique_rc_trial_cancelled_event,
+  SUM(unique_rc_initial_purchase_event) AS unique_rc_initial_purchase_event,
+  SUM(unique_rc_non_subscription_purchase_event) AS unique_rc_non_subscription_purchase_event,
+  SUM(unique_rc_expiration_event) AS unique_rc_expiration_event,
+  SUM(unique_rc_billing_issue_event) AS unique_rc_billing_issue_event,
+  SUM(unique_rc_product_change_event) AS unique_rc_product_change_event,
+  NULL AS unique_af_purchase,
+  NULL AS unique_package_purchase,
+
+  SUM(event_revenue) AS event_revenue,
+  SUM(total_cost) AS total_cost,
+  SUM(total_clicks) AS total_clicks,
+  SUM(total_installs) AS total_installs,
+  SUM(total_impressions) AS total_impressions,
+  SUM(total_re_attributions) AS total_re_attributions,
+  SUM(total_re_engagements) AS total_re_engagements,
+  SUM(total_video_completions) AS total_video_completions,
+  SUM(total_video_25p_views) AS total_video_25p_views,
+  SUM(total_video_50p_views) AS total_video_50p_views,
+  SUM(total_video_75p_views) AS total_video_75p_views
+FROM
+  `${dataform.projectConfig.vars.rockadsProject}.id6738990592_appsflyer_ds.id6738990592_platforms_merged_metrics_all_cost_geo_unique_with_links`
+GROUP BY ALL
+
+
+-- Esim IO
+UNION ALL
+SELECT
+  report_date,
+  app_id,
+  geo,
+  campaign,
+  ad,
+  CASE WHEN media_source = 'facebook' then 'Facebook Ads' ELSE media_source end as media_source,
+  appsflyer_os_id,
+  thumbnail_url,
+  video_url,
+  SUM(rc_trial_converted_event) AS rc_trial_converted_event,
+  SUM(rc_renewal_event) AS rc_renewal_event,
+  SUM(rc_cancellation_event) AS rc_cancellation_event,
+  SUM(rc_trial_started_event) AS rc_trial_started_event,
+  SUM(rc_trial_cancelled_event) AS rc_trial_cancelled_event,
+  SUM(rc_initial_purchase_event) AS rc_initial_purchase_event,
+  SUM(rc_non_subscription_purchase_event) AS rc_non_subscription_purchase_event,
+  SUM(rc_expiration_event) AS rc_expiration_event,
+  SUM(rc_billing_issue_event) AS rc_billing_issue_event,
+  SUM(rc_product_change_event) AS rc_product_change_event,
+  SUM(af_purchase) AS af_purchase,
+  SUM(package_purchase) AS package_purchase,
+
+  SUM(unique_rc_trial_converted_event) AS unique_rc_trial_converted_event,
+  SUM(unique_rc_renewal_event) AS unique_rc_renewal_event,
+  SUM(unique_rc_cancellation_event) AS unique_rc_cancellation_event,
+  SUM(unique_rc_trial_started_event) AS unique_rc_trial_started_event,
+  SUM(unique_rc_trial_cancelled_event) AS unique_rc_trial_cancelled_event,
+  SUM(unique_rc_initial_purchase_event) AS unique_rc_initial_purchase_event,
+  SUM(unique_rc_non_subscription_purchase_event) AS unique_rc_non_subscription_purchase_event,
+  SUM(unique_rc_expiration_event) AS unique_rc_expiration_event,
+  SUM(unique_rc_billing_issue_event) AS unique_rc_billing_issue_event,
+  SUM(unique_rc_product_change_event) AS unique_rc_product_change_event,
+  SUM(unique_af_purchase) AS unique_af_purchase,
+  SUM(unique_package_purchase) AS unique_package_purchase,
+
+  SUM(event_revenue) AS event_revenue,
+  SUM(total_cost) AS total_cost,
+  SUM(total_clicks) AS total_clicks,
+  SUM(total_installs) AS total_installs,
+  SUM(total_impressions) AS total_impressions,
+  SUM(total_re_attributions) AS total_re_attributions,
+  SUM(total_re_engagements) AS total_re_engagements,
+  SUM(total_video_completions) AS total_video_completions,
+  SUM(total_video_25p_views) AS total_video_25p_views,
+  SUM(total_video_50p_views) AS total_video_50p_views,
+  SUM(total_video_75p_views) AS total_video_75p_views
+FROM
+  `${dataform.projectConfig.vars.rockadsProject}.id6473276045_appsflyer_ds.id6473276045_platforms_merged_metrics_all_cost_geo_unique_with_links`
+GROUP BY ALL
+
+-- Robo AI
+UNION ALL
+SELECT
+  report_date,
+  app_id,
+  geo,
+  campaign,
+  ad,
+  CASE WHEN media_source = 'facebook' then 'Facebook Ads' ELSE media_source end as media_source,
+  appsflyer_os_id,
+  thumbnail_url,
+  video_url,
+  SUM(rc_trial_converted_event) AS rc_trial_converted_event,
+  SUM(rc_renewal_event) AS rc_renewal_event,
+  SUM(rc_cancellation_event) AS rc_cancellation_event,
+  SUM(rc_trial_started_event) AS rc_trial_started_event,
+  SUM(rc_trial_cancelled_event) AS rc_trial_cancelled_event,
+  SUM(rc_initial_purchase_event) AS rc_initial_purchase_event,
+  SUM(rc_non_subscription_purchase_event) AS rc_non_subscription_purchase_event,
+  SUM(rc_expiration_event) AS rc_expiration_event,
+  SUM(rc_billing_issue_event) AS rc_billing_issue_event,
+  SUM(rc_product_change_event) AS rc_product_change_event,
+  NULL AS af_purchase,
+  NULL AS package_purchase,
+
+  SUM(unique_rc_trial_converted_event) AS unique_rc_trial_converted_event,
+  SUM(unique_rc_renewal_event) AS unique_rc_renewal_event,
+  SUM(unique_rc_cancellation_event) AS unique_rc_cancellation_event,
+  SUM(unique_rc_trial_started_event) AS unique_rc_trial_started_event,
+  SUM(unique_rc_trial_cancelled_event) AS unique_rc_trial_cancelled_event,
+  SUM(unique_rc_initial_purchase_event) AS unique_rc_initial_purchase_event,
+  SUM(unique_rc_non_subscription_purchase_event) AS unique_rc_non_subscription_purchase_event,
+  SUM(unique_rc_expiration_event) AS unique_rc_expiration_event,
+  SUM(unique_rc_billing_issue_event) AS unique_rc_billing_issue_event,
+  SUM(unique_rc_product_change_event) AS unique_rc_product_change_event,
+  NULL AS unique_af_purchase,
+  NULL AS unique_package_purchase,
+
+  SUM(event_revenue) AS event_revenue,
+  SUM(total_cost) AS total_cost,
+  SUM(total_clicks) AS total_clicks,
+  SUM(total_installs) AS total_installs,
+  SUM(total_impressions) AS total_impressions,
+  SUM(total_re_attributions) AS total_re_attributions,
+  SUM(total_re_engagements) AS total_re_engagements,
+  SUM(total_video_completions) AS total_video_completions,
+  SUM(total_video_25p_views) AS total_video_25p_views,
+  SUM(total_video_50p_views) AS total_video_50p_views,
+  SUM(total_video_75p_views) AS total_video_75p_views
+FROM
+  `${dataform.projectConfig.vars.rockadsProject}.id1662905686_appsflyer_ds.id1662905686_platforms_merged_metrics_all_cost_geo_unique_with_links`
+GROUP BY ALL
+
+-- Lisa AI
+UNION ALL
+SELECT
+  report_date,
+  app_id,
+  geo,
+  campaign,
+  ad,
+  CASE WHEN media_source = 'facebook' then 'Facebook Ads' ELSE media_source end as media_source,
+  appsflyer_os_id,
+  thumbnail_url,
+  video_url,
+  SUM(rc_trial_converted_event) AS rc_trial_converted_event,
+  SUM(rc_renewal_event) AS rc_renewal_event,
+  SUM(rc_cancellation_event) AS rc_cancellation_event,
+  SUM(rc_trial_started_event) AS rc_trial_started_event,
+  SUM(rc_trial_cancelled_event) AS rc_trial_cancelled_event,
+  SUM(rc_initial_purchase_event) AS rc_initial_purchase_event,
+  SUM(rc_non_subscription_purchase_event) AS rc_non_subscription_purchase_event,
+  SUM(rc_expiration_event) AS rc_expiration_event,
+  SUM(rc_billing_issue_event) AS rc_billing_issue_event,
+  SUM(rc_product_change_event) AS rc_product_change_event,
+  SUM(af_purchase) AS af_purchase,
+  SUM(package_purchase) AS package_purchase,
+
+  SUM(unique_rc_trial_converted_event) AS unique_rc_trial_converted_event,
+  SUM(unique_rc_renewal_event) AS unique_rc_renewal_event,
+  SUM(unique_rc_cancellation_event) AS unique_rc_cancellation_event,
+  SUM(unique_rc_trial_started_event) AS unique_rc_trial_started_event,
+  SUM(unique_rc_trial_cancelled_event) AS unique_rc_trial_cancelled_event,
+  SUM(unique_rc_initial_purchase_event) AS unique_rc_initial_purchase_event,
+  SUM(unique_rc_non_subscription_purchase_event) AS unique_rc_non_subscription_purchase_event,
+  SUM(unique_rc_expiration_event) AS unique_rc_expiration_event,
+  SUM(unique_rc_billing_issue_event) AS unique_rc_billing_issue_event,
+  SUM(unique_rc_product_change_event) AS unique_rc_product_change_event,
+  SUM(unique_af_purchase) AS unique_af_purchase,
+  SUM(unique_package_purchase) AS unique_package_purchase,
+
+  SUM(event_revenue) AS event_revenue,
+  SUM(total_cost) AS total_cost,
+  SUM(total_clicks) AS total_clicks,
+  SUM(total_installs) AS total_installs,
+  SUM(total_impressions) AS total_impressions,
+  SUM(total_re_attributions) AS total_re_attributions,
+  SUM(total_re_engagements) AS total_re_engagements,
+  SUM(total_video_completions) AS total_video_completions,
+  SUM(total_video_25p_views) AS total_video_25p_views,
+  SUM(total_video_50p_views) AS total_video_50p_views,
+  SUM(total_video_75p_views) AS total_video_75p_views
+FROM
+  `${dataform.projectConfig.vars.rockadsProject}.id6443832829_appsflyer_ds.id6443832829_platforms_merged_metrics_all_cost_geo_unique_with_links`
+GROUP BY ALL
+
+-- Moyra
+UNION ALL
+SELECT
+  report_date,
+  app_id,
+  geo,
+  campaign,
+  ad,
+  CASE WHEN media_source = 'facebook' then 'Facebook Ads' ELSE media_source end as media_source,
+  appsflyer_os_id,
+  thumbnail_url,
+  video_url,
+  SUM(rc_trial_converted_event) AS rc_trial_converted_event,
+  SUM(rc_renewal_event) AS rc_renewal_event,
+  SUM(rc_cancellation_event) AS rc_cancellation_event,
+  SUM(rc_trial_started_event) AS rc_trial_started_event,
+  SUM(rc_trial_cancelled_event) AS rc_trial_cancelled_event,
+  SUM(rc_initial_purchase_event) AS rc_initial_purchase_event,
+  SUM(rc_non_subscription_purchase_event) AS rc_non_subscription_purchase_event,
+  SUM(rc_expiration_event) AS rc_expiration_event,
+  SUM(rc_billing_issue_event) AS rc_billing_issue_event,
+  SUM(rc_product_change_event) AS rc_product_change_event,
+  SUM(af_purchase) AS af_purchase,
+  SUM(package_purchase) AS package_purchase,
+
+  SUM(unique_rc_trial_converted_event) AS unique_rc_trial_converted_event,
+  SUM(unique_rc_renewal_event) AS unique_rc_renewal_event,
+  SUM(unique_rc_cancellation_event) AS unique_rc_cancellation_event,
+  SUM(unique_rc_trial_started_event) AS unique_rc_trial_started_event,
+  SUM(unique_rc_trial_cancelled_event) AS unique_rc_trial_cancelled_event,
+  SUM(unique_rc_initial_purchase_event) AS unique_rc_initial_purchase_event,
+  SUM(unique_rc_non_subscription_purchase_event) AS unique_rc_non_subscription_purchase_event,
+  SUM(unique_rc_expiration_event) AS unique_rc_expiration_event,
+  SUM(unique_rc_billing_issue_event) AS unique_rc_billing_issue_event,
+  SUM(unique_rc_product_change_event) AS unique_rc_product_change_event,
+  SUM(unique_af_purchase) AS unique_af_purchase,
+  SUM(unique_package_purchase) AS unique_package_purchase,
+
+  SUM(event_revenue) AS event_revenue,
+  SUM(total_cost) AS total_cost,
+  SUM(total_clicks) AS total_clicks,
+  SUM(total_installs) AS total_installs,
+  SUM(total_impressions) AS total_impressions,
+  SUM(total_re_attributions) AS total_re_attributions,
+  SUM(total_re_engagements) AS total_re_engagements,
+  SUM(total_video_completions) AS total_video_completions,
+  SUM(total_video_25p_views) AS total_video_25p_views,
+  SUM(total_video_50p_views) AS total_video_50p_views,
+  SUM(total_video_75p_views) AS total_video_75p_views
+FROM
+  `${dataform.projectConfig.vars.rockadsProject}.id1363478842_appsflyer_ds.id1363478842_platforms_merged_metrics_all_cost_geo_unique_with_links`
+GROUP BY ALL
+
+
+-- Stliyco
+UNION ALL
+SELECT
+  report_date,
+  app_id,
+  geo,
+  campaign,
+  ad,
+  CASE WHEN media_source = 'facebook' then 'Facebook Ads' ELSE media_source end as media_source,
+  appsflyer_os_id,
+  thumbnail_url,
+  video_url,
+  SUM(rc_trial_converted_event) AS rc_trial_converted_event,
+  SUM(rc_renewal_event) AS rc_renewal_event,
+  SUM(rc_cancellation_event) AS rc_cancellation_event,
+  SUM(rc_trial_started_event) AS rc_trial_started_event,
+  SUM(rc_trial_cancelled_event) AS rc_trial_cancelled_event,
+  SUM(rc_initial_purchase_event) AS rc_initial_purchase_event,
+  SUM(rc_non_subscription_purchase_event) AS rc_non_subscription_purchase_event,
+  SUM(rc_expiration_event) AS rc_expiration_event,
+  SUM(rc_billing_issue_event) AS rc_billing_issue_event,
+  SUM(rc_product_change_event) AS rc_product_change_event,
+  SUM(af_purchase) AS af_purchase,
+  SUM(package_purchase) AS package_purchase,
+
+  SUM(unique_rc_trial_converted_event) AS unique_rc_trial_converted_event,
+  SUM(unique_rc_renewal_event) AS unique_rc_renewal_event,
+  SUM(unique_rc_cancellation_event) AS unique_rc_cancellation_event,
+  SUM(unique_rc_trial_started_event) AS unique_rc_trial_started_event,
+  SUM(unique_rc_trial_cancelled_event) AS unique_rc_trial_cancelled_event,
+  SUM(unique_rc_initial_purchase_event) AS unique_rc_initial_purchase_event,
+  SUM(unique_rc_non_subscription_purchase_event) AS unique_rc_non_subscription_purchase_event,
+  SUM(unique_rc_expiration_event) AS unique_rc_expiration_event,
+  SUM(unique_rc_billing_issue_event) AS unique_rc_billing_issue_event,
+  SUM(unique_rc_product_change_event) AS unique_rc_product_change_event,
+  SUM(unique_af_purchase) AS unique_af_purchase,
+  SUM(unique_package_purchase) AS unique_package_purchase,
+
+  SUM(event_revenue) AS event_revenue,
+  SUM(total_cost) AS total_cost,
+  SUM(total_clicks) AS total_clicks,
+  SUM(total_installs) AS total_installs,
+  SUM(total_impressions) AS total_impressions,
+  SUM(total_re_attributions) AS total_re_attributions,
+  SUM(total_re_engagements) AS total_re_engagements,
+  SUM(total_video_completions) AS total_video_completions,
+  SUM(total_video_25p_views) AS total_video_25p_views,
+  SUM(total_video_50p_views) AS total_video_50p_views,
+  SUM(total_video_75p_views) AS total_video_75p_views
+FROM
+  `${dataform.projectConfig.vars.rockadsProject}.id6741896957_appsflyer_ds.id6741896957_platforms_merged_metrics_all_cost_geo_unique_with_links`
+GROUP BY ALL

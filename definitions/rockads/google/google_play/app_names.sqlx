@@ -1,0 +1,210 @@
+config {
+  type: "table",
+  database: `${dataform.projectConfig.vars.rockadsProject}`,
+  name: "google_play_app_account_names",
+  schema: "mapping_tables",
+  tags: ['google_play']
+}
+
+WITH
+  t AS (
+  SELECT
+    DISTINCT product_id,
+    REGEXP_EXTRACT(product_title, '\\(([^)]+)\\)') AS app_name
+  FROM
+    `${dataform.projectConfig.vars.rockadsProject}.googlePlay.googlePlay_sales_*`),
+  table_all AS (
+  SELECT
+    t.*,
+    ai.name AS mys_name,
+    COUNT(DISTINCT app_name) OVER(PARTITION BY product_id) AS appname_count,
+    CASE
+      WHEN app_name IN ( SELECT DISTINCT app_name FROM ${dataform.projectConfig.vars.rockadsProject}.mapping_tables.itunes_app_names) THEN 1
+      ELSE 0
+  END
+    AS is_ios_exist
+  FROM
+    t
+  LEFT JOIN
+    ${dataform.projectConfig.vars.rockadsProject}.mapping_tables.application_ios_copy_mysql ai
+  ON
+    t.product_id = ai.android_id
+  ORDER BY
+    product_id,
+    app_name),
+  table1 AS (
+  SELECT
+    DISTINCT product_id,
+    app_name
+  FROM
+    table_all
+  WHERE
+    appname_count = 1 ),
+  table2 AS (
+  SELECT
+    DISTINCT product_id,
+    app_name
+  FROM (
+    SELECT
+      *,
+      SUM(is_ios_exist) OVER(PARTITION BY product_id) AS total_ios
+    FROM
+      table_all
+    WHERE
+      appname_count > 1 )
+  WHERE
+    total_ios = 1
+    AND is_ios_exist = 1
+    AND appname_count != 1 ),
+  table3 AS (
+  SELECT
+    DISTINCT product_id,
+    app_name
+  FROM (
+    SELECT
+      *,
+      ROW_NUMBER() OVER(PARTITION BY product_id ORDER BY is_ios_exist DESC, app_name DESC) rs,
+      SUM(is_ios_exist) OVER(PARTITION BY product_id) total_ios
+    FROM
+      table_all )
+  WHERE
+    rs = 1
+    AND total_ios > 1
+    AND appname_count != 1 ),
+  table4 AS (
+  SELECT
+    product_id,
+    CASE
+      WHEN mys_name IS NOT NULL THEN mys_name
+      WHEN mys_name IS NULL
+    AND rs = 1 THEN app_name
+      ELSE NULL
+  END
+    AS app_name2
+  FROM (
+    SELECT
+      *,
+      ROW_NUMBER() OVER(PARTITION BY product_id ORDER BY is_ios_exist DESC, app_name DESC) rs,
+      SUM(is_ios_exist) OVER(PARTITION BY product_id) total_ios
+    FROM (
+      SELECT
+        *
+      FROM
+        table_all
+      WHERE
+        REGEXP_CONTAINS(app_name, r'^[A-Za-zÇŞĞİÖÜçşğışöü0-9\p{P}\p{S} ]+$'))
+    WHERE
+      product_id NOT IN (
+      SELECT
+        product_id
+      FROM
+        table3
+      UNION ALL
+      SELECT
+        product_id
+      FROM
+        table2
+      UNION ALL
+      SELECT
+        product_id
+      FROM
+        table1) ) ),
+  android_app_names AS (
+  SELECT
+    DISTINCT product_id,
+    app_name
+  FROM (
+    SELECT
+      *
+    FROM
+      table1
+    UNION ALL
+    SELECT
+      *
+    FROM
+      table2
+    UNION ALL
+    SELECT
+      *
+    FROM
+      table3
+    UNION ALL
+    SELECT
+      product_id,
+      app_name2 AS app_name
+    FROM
+      table4
+    WHERE
+      app_name2 IS NOT NULL ) ),
+  android_app_names_all AS (
+  SELECT
+    DISTINCT product_id,
+    app_name
+  FROM (
+    SELECT
+      *
+    FROM
+      android_app_names
+    UNION ALL
+    SELECT
+      DISTINCT product_id,
+      app_name
+    FROM
+      ${dataform.projectConfig.vars.rockadsProject}.mapping_tables.google_play_app_account_names
+    WHERE
+      product_id NOT IN (
+      SELECT
+        product_id
+      FROM
+        android_app_names) ) ),
+  ac1 AS(
+  SELECT
+    product_id,
+    bucket_name
+  FROM
+    `${dataform.projectConfig.vars.rockadsProject}.googlePlay.googlePlay_sales_*` ),
+  ac2 AS(
+  SELECT
+    ac1.*,
+    t2.app_name
+  FROM
+    ac1
+  LEFT JOIN
+    android_app_names_all t2
+  ON
+    ac1.product_id = t2.product_id )
+SELECT
+  t1.product_id,
+  t1.app_name,
+  t1.account_name,
+  COALESCE(t1.bucket_name, t2.bucket_name) AS bucket_name
+FROM (
+  SELECT
+    t1.*,
+    CASE
+      WHEN t1.product_id = 'io.esim' THEN 'Gtc'
+      ELSE t2.company_name
+  END
+    AS account_name,
+    bucket_name
+  FROM
+    android_app_names_all t1
+  LEFT JOIN (
+    SELECT
+      DISTINCT app_name,
+      company_name,
+      ac2.bucket_name
+    FROM
+      ac2
+    LEFT JOIN
+      ${dataform.projectConfig.vars.rockadsProject}.googlePlay.googlePlay_tokens gpt
+    ON
+      gpt.bucket_name = ac2.bucket_name
+    WHERE
+      company_name IS NOT NULL) t2
+  ON
+    t1.app_name = t2.app_name ) t1
+LEFT JOIN
+  ${dataform.projectConfig.vars.rockadsProject}.googlePlay.googlePlay_tokens t2
+ON
+  t1.account_name = t2.company_name

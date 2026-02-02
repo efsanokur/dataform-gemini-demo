@@ -1,0 +1,65 @@
+config {
+  type: "table",
+    bigquery: {
+    partitionBy: "report_date",
+    clusterBy: ["media_source"]
+  },
+  database: `${dataform.projectConfig.vars.rockadsProject}`,
+  name: "id6473276045_combined_single_all_cost_dm_all_geo",
+  schema: "id6473276045_appsflyer_ds",
+  dependencies: ['id6473276045_cost_dm'],
+  tags: ['appsflyer_id6473276045_main']
+}
+
+SELECT
+  DISTINCT costs.ad AS ad,
+  costs.report_date as report_date,
+  costs.campaign as campaign,
+  costs.adset as adset,
+  costs.geo,
+  costs.app_id,
+  costs.media_source,
+  costs.appsflyer_os_id,
+  IF(costs.total_cost=0, IFNULL(all_costs.total_cost,0.0), costs.total_cost) as total_cost,
+  IF(costs.total_installs=0, IFNULL(all_costs.total_installs,0.0), costs.total_installs) as total_installs,
+  IF(costs.total_clicks=0, IFNULL(all_costs.total_clicks,0.0), costs.total_clicks) as total_clicks,
+  IF(costs.total_impressions = 0, IFNULL(all_costs.total_impressions, 0), costs.total_impressions) AS total_impressions,
+  IF(costs.total_re_attributions = 0, IFNULL(all_costs.total_re_attributions, 0), costs.total_re_attributions) AS total_re_attributions,
+  IF(costs.total_re_engagements = 0, IFNULL(all_costs.total_re_engagements, 0), costs.total_re_engagements) AS total_re_engagements,
+  IF(costs.total_video_completions = 0, IFNULL(all_costs.total_video_completions, 0), costs.total_video_completions) AS total_video_completions,
+  IF(costs.total_video_25p_views = 0, IFNULL(all_costs.total_video_25p_views, 0), costs.total_video_25p_views) AS total_video_25p_views,
+  IF(costs.total_video_50p_views = 0, IFNULL(all_costs.total_video_50p_views, 0), costs.total_video_50p_views) AS total_video_50p_views,
+  IF(costs.total_video_75p_views = 0, IFNULL(all_costs.total_video_75p_views, 0), costs.total_video_75p_views) AS total_video_75p_views
+FROM
+  `${dataform.projectConfig.vars.rockadsProject}.id6473276045_appsflyer_ds.id6473276045_single_cost_dm_all_geo` costs
+LEFT JOIN (
+  SELECT
+    ad,
+    campaign,
+    adset,
+    report_date,
+    app_id,
+    media_source,
+    appsflyer_os_id,
+    geo,
+    SUM(total_cost) total_cost,
+    SUM(total_installs) total_installs,
+    SUM(total_clicks) total_clicks,
+    SUM(total_impressions) AS total_impressions,
+    SUM(total_re_attributions) AS total_re_attributions,
+    SUM(total_re_engagements) AS total_re_engagements,
+    SUM(total_video_completions) AS total_video_completions,
+    SUM(total_video_25p_views) AS total_video_25p_views,
+    SUM(total_video_50p_views) AS total_video_50p_views,
+    SUM(total_video_75p_views) AS total_video_75p_views
+  FROM
+    `${dataform.projectConfig.vars.rockadsProject}.id6473276045_appsflyer_ds.id6473276045_cost_dm`
+    GROUP BY ALL
+) all_costs
+ON
+  all_costs.ad=costs.ad
+  AND all_costs.campaign=costs.campaign
+  AND all_costs.adset=costs.adset
+  AND all_costs.report_date=costs.report_date
+  AND all_costs.geo=costs.geo
+  AND all_costs.app_id=costs.app_id

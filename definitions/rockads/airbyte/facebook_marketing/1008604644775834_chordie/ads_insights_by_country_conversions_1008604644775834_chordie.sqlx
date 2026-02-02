@@ -1,0 +1,97 @@
+config {
+  type: "table",
+  bigquery: {
+    partitionBy: "ad_insight_date_start",
+    clusterBy: ["country"]
+  },
+  database: `${dataform.projectConfig.vars.rockadsProject}`,
+  name: "ads_insights_by_country_conversions_1008604644775834_chordie",
+  schema: "fb_airbyte_datamarts",
+  tags: ['facebook_airbyte_1008604644775834_chordie']
+}
+
+WITH main_data as (
+SELECT
+  created_time as ad_insight_created_time,
+  date_start,
+  account_id,
+  account_name,
+  account_currency,
+  ad_id,
+  ad_name,
+  country,
+  campaign_name,
+  campaign_id,
+  objective,
+  JSON_EXTRACT_ARRAY(conversions) AS json_array_conversions,
+  JSON_EXTRACT_ARRAY(conversion_values) AS json_array_conversions_values
+ FROM `${dataform.projectConfig.vars.rockadsProject}.fb_airbyte._1008604644775834_chordie_ads_insights_country`
+),
+clean_ads AS (
+  SELECT
+    id,
+    campaign_id,
+    adset_id,
+    last_updated_by_app_id,
+    status as ad_status,
+    name AS ad_name,
+    created_time
+  FROM `${dataform.projectConfig.vars.rockadsProject}.fb_airbyte._1008604644775834_chordie_ads`
+),
+clean_campaigns AS (
+  SELECT
+    id AS campaign_id,
+    name AS campaign_name,
+    objective,
+    start_time,
+    stop_time
+  FROM `${dataform.projectConfig.vars.rockadsProject}.fb_airbyte._1008604644775834_chordie_campaigns`
+),
+
+clean_ad_sets AS (
+  SELECT
+    id AS adset_id,
+    start_time,
+    end_time,
+    name AS adset_name,
+    campaign_id,
+    effective_status,
+    bid_strategy,
+    daily_budget,
+    bid_amount
+  FROM `${dataform.projectConfig.vars.rockadsProject}.fb_airbyte._1008604644775834_chordie_ad_sets`
+)
+
+SELECT
+  i.ad_id,
+  i.ad_insight_created_time,
+  i.date_start as ad_insight_date_start,
+  i.account_id,
+  i.account_name,
+  i.account_currency,
+  i.country,
+  i.objective,
+  cds.ad_name,
+  cds.last_updated_by_app_id,
+  cds.ad_status,
+  sa.adset_name,
+  sa.effective_status as adset_effective_status,
+  sa.bid_strategy as adset_bid_strategy,
+  sa.daily_budget as adset_daily_budget,
+  sa.start_time as adset_start_time,
+  sa.end_time as adset_end_time,
+  ca.campaign_id,
+  ca.campaign_name,
+  ca.start_time as campaign_start_time,
+  ca.stop_time as campaign_stop_time,
+    MAX(CASE WHEN JSON_EXTRACT_SCALAR(conversion_element, '$.action_type') = 'subscribe_website' THEN JSON_EXTRACT_SCALAR(conversion_element, '$.value') ELSE NULL END) AS conversion_subscribe_website_value,
+    MAX(CASE WHEN JSON_EXTRACT_SCALAR(conversion_element, '$.action_type') = 'subscribe_mobile_app' THEN JSON_EXTRACT_SCALAR(conversion_element, '$.value') ELSE NULL END) AS conversion_subscribe_mobile_app,
+    MAX(CASE WHEN JSON_EXTRACT_SCALAR(conversion_element, '$.action_type') = 'subscribe_total' THEN JSON_EXTRACT_SCALAR(conversion_element, '$.value') ELSE NULL END) AS conversion_subscribe_total,
+    MAX(CASE WHEN JSON_EXTRACT_SCALAR(conversion_values_element, '$.action_type') = 'subscribe_website' THEN JSON_EXTRACT_SCALAR(conversion_values_element, '$.value') ELSE NULL END) AS conversion_values_subscribe_website_value,
+    MAX(CASE WHEN JSON_EXTRACT_SCALAR(conversion_values_element, '$.action_type') = 'subscribe_mobile_app' THEN JSON_EXTRACT_SCALAR(conversion_values_element, '$.value') ELSE NULL END) AS conversion_values_subscribe_mobile_app,
+    MAX(CASE WHEN JSON_EXTRACT_SCALAR(conversion_values_element, '$.action_type') = 'subscribe_total' THEN JSON_EXTRACT_SCALAR(conversion_values_element, '$.value') ELSE NULL END) AS conversion_values_subscribe_total
+from main_data i, UNNEST(json_array_conversions) as conversion_element, UNNEST(json_array_conversions_values) as conversion_values_element
+LEFT JOIN clean_ads cds ON i.ad_id = cds.id
+LEFT JOIN clean_campaigns ca ON cds.campaign_id = ca.campaign_id
+LEFT JOIN clean_ad_sets sa ON cds.adset_id = sa.adset_id
+GROUP BY ALL

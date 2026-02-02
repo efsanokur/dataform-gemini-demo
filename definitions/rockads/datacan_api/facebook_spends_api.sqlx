@@ -1,0 +1,67 @@
+config {
+  type: "operations",
+  database: `${dataform.projectConfig.vars.rockadsProject}`,
+  name: "facebook_spends_api",
+  dependencies: ["googleAds_spends_api"],
+  tags: ['datacan_spends_daily']
+}
+
+CREATE TEMP FUNCTION
+    replaceTurkishChars(input STRING)
+    RETURNS STRING
+    LANGUAGE js AS """
+    var trMap = {
+      'ç':'c', 'ğ':'g', 'ı':'i', 'ö':'o', 'ş':'s', 'ü':'u',
+      'Ç':'C', 'Ğ':'G', 'İ':'I', 'Ö':'O', 'Ş':'S', 'Ü':'U'
+    };
+    var output = Array.from(input).map(function(c) {
+      return trMap[c] || c;
+    }).join('');
+    return output;
+  """;
+
+
+CREATE OR REPLACE TABLE `${dataform.projectConfig.vars.rockadsProject}.datacan_thirdparty_api_datamarts.facebook_spends_api`
+PARTITION BY created_time
+AS
+
+WITH ad_sets AS (
+  SELECT DISTINCT campaign_id, application_id
+  FROM `${dataform.projectConfig.vars.rockadsProject}.facebook.facebook_ad_set`
+),
+apps as (
+  SELECT DISTINCT id, name
+  FROM `${dataform.projectConfig.vars.rockadsProject}.facebook.facebook_apps`
+)
+SELECT
+  t0.created_time,
+  fb_apps.name as app_name,
+  replaceTurkishChars(IFNULL(t1.account_name,t0.account_name)) AS account,
+  concat(business_id, '_', business_name) as business,
+  campaign_name,
+  t0.campaign_id,
+  'USD' AS currency_type,
+  'Facebook' AS channel,
+  SUM(CAST(spend AS float64) / (CASE
+        WHEN account_currency = 'USD' THEN 1
+        ELSE currency_rate
+    END
+      )) AS total_spend_usd,
+FROM
+  `${dataform.projectConfig.vars.rockadsProject}.facebook.facebook_campaign_spends_*` t0
+LEFT JOIN
+  `${dataform.projectConfig.vars.rockadsProject}.mapping_tables.facebook_ad_business_names` t1
+ON
+  t0.account_id = t1.account_id
+LEFT JOIN (
+  SELECT ad_sets.*, apps.name FROM ad_sets
+  LEFT JOIN apps ON ad_sets.application_id=apps.id
+) fb_apps ON fb_apps.campaign_id=t0.campaign_id
+
+LEFT JOIN
+  `${dataform.projectConfig.vars.rockadsProject}.mapping_tables.currency_rates_*` t3
+ON
+  t3.relative_currency = t0.account_currency
+  AND t0.created_time = t3.date
+GROUP BY
+1,2,3,4,5,6

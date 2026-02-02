@@ -1,0 +1,14 @@
+config {
+    type: "operations",
+    database: `${dataform.projectConfig.vars.rockadsProject}`,
+    name: "subscriber_detailed_report_daily_update",
+    tags: ['rockads_main_analytics_pipeline']
+}
+
+DELETE
+FROM
+  `${dataform.projectConfig.vars.rockadsProject}.subscription_cohorts.user_subscriber_detailed_report`
+WHERE
+  (event_date >= '${rockads_analytics_libs.formattedBQPeriodStartDateBqDate}'
+    AND event_date < '${rockads_analytics_libs.currentDate}')
+  OR platform = "Stripe";

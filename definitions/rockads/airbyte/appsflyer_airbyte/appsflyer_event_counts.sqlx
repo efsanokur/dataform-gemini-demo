@@ -1,0 +1,43 @@
+config {
+  type: "table",
+  bigquery: {
+    partitionBy: "event_date",
+    clusterBy: ["country_code"]
+  },
+  database: `${dataform.projectConfig.vars.rockadsProject}`,
+  name: "appsflyer_event_counts",
+  schema: "appsflyer_airbyte_datamarts",
+  tags: ['appsflyer_airbyte_pipeline']
+}
+
+WITH main_raw_data AS (
+SELECT  campaign, af_ad, af_ad_id, event_name,media_source,country_code,
+DATE(DATETIME(install_time, "Europe/Istanbul")) as event_date,
+
+ FROM `${dataform.projectConfig.vars.rockadsProject}.appsflyer_airbyte.ai_cleaner_in_app_events` 
+
+)
+SELECT * FROM (
+SELECT campaign, af_ad, af_ad_id, country_code,
+media_source, event_name,
+event_date,
+count(event_name) AS event_count,
+FROM main_raw_data 
+GROUP BY ALL
+)
+PIVOT (
+  MAX(event_count) FOR event_name IN (
+    'paywallShowed',
+    'paymentInit',
+    'rc_renewal_event',
+    'rc_trial_converted_event',
+    'rc_expiration_event',
+    'rc_cancellation_event',
+    'rc_billing_issue_event',
+    'rc_initial_purchase_event',
+    'rc_product_change_event',
+    'rc_trial_started_event',
+    'rc_trial_cancelled_event',
+    'WebToAppInstall'
+  )
+)

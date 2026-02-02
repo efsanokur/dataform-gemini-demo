@@ -1,0 +1,80 @@
+config { 
+  type: "table",
+  bigquery: { 
+    partitionBy: "segments_date",
+    clusterBy: ["customer_id"] 
+  },
+  database: `${dataform.projectConfig.vars.rockadsProject}`,
+  name: "all_apps_campaign_geographic_view",
+  schema: "googleAds_dm",
+  dependencies: ["deduplication_geographic_view"],
+  tags: ["google_ads_marketing"] 
+}
+
+SELECT
+  gv.segments_date,
+  gv.campaign_id,
+  gv.customer_id,
+  gv.campaign_name,
+  CAST(NULL AS STRING) AS appsflyer_os_id,
+  gv.geo,
+  'googleadwords_int' AS media_source,
+  'USD' AS currency,
+  gv.total_cost,
+  gv.total_clicks,
+  gv.total_impressions,
+  gv.conversions,
+  IFNULL(pa.google_begin_checkout, 0) AS total_google_begin_checkout,
+  IFNULL(pa.google_download, 0) AS total_google_download,
+  IFNULL(pa.google_purchase, 0) AS total_google_purchase
+FROM (
+  SELECT
+    geo_view.segments_date,
+    geo_view.campaign_id,
+    geo_view.customer_id,
+    geo_view.campaign_name,
+  IF
+    ( geo_const.geo_target_constant_country_code = 'GB', 'UK', geo_const.geo_target_constant_country_code ) AS geo,
+    SUM(geo_view.metrics_cost_micros / 1000000) AS total_cost,
+    SUM(geo_view.metrics_clicks) AS total_clicks,
+    SUM(geo_view.metrics_impressions) AS total_impressions,
+    SUM(geo_view.metrics_conversions) AS conversions,
+    geo_view.geographic_view_country_criterion_id
+  FROM
+    `${dataform.projectConfig.vars.rockadsProject}.googleAds_airbyte._all_apps_custom_campaign_geographic_view` AS geo_view
+  LEFT JOIN (
+    SELECT
+      DISTINCT geo_target_constant_id,
+      geo_target_constant_country_code
+    FROM
+      `${dataform.projectConfig.vars.rockadsProject}.googleAds_airbyte._all_apps_custom_geo_target_constant` ) AS geo_const
+  ON
+    geo_view.geographic_view_country_criterion_id = geo_const.geo_target_constant_id
+  WHERE
+    LOWER(geo_view.campaign_name) LIKE '%performancemax%'
+    OR LOWER(geo_view.campaign_name) LIKE '%pmax%'
+  GROUP BY
+    geo_view.segments_date,
+    geo_view.campaign_id,
+    geo_view.customer_id,
+    geo_view.campaign_name,
+    geo,
+    geo_view.geographic_view_country_criterion_id ) AS gv
+LEFT JOIN (
+  SELECT
+    segments_date,
+    campaign_id,
+    country_criterion_id,
+    SUM(google_begin_checkout) AS google_begin_checkout,
+    SUM(google_download) AS google_download,
+    SUM(google_purchase) AS google_purchase
+  FROM
+    `${dataform.projectConfig.vars.rockadsProject}.googleAds_dm.conversion_metrics`
+  GROUP BY
+    segments_date,
+    campaign_id,
+    country_criterion_id ) AS pa
+ON
+  pa.segments_date = gv.segments_date
+  AND pa.campaign_id = gv.campaign_id
+  AND pa.country_criterion_id = gv.geographic_view_country_criterion_id

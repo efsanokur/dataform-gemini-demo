@@ -1,0 +1,47 @@
+config {
+  type: "operations",
+  database: `${dataform.projectConfig.vars.rockadsProject}`,
+  name: "videa_firebase_calculations",
+  dependencies: ['videa_churney_appsflyer_in_app_events'],
+  tags: ['churney_appsflyer']
+}
+
+INSERT INTO rockads-thirdparty.churney.firebase_users
+
+SELECT
+*, CURRENT_DATETIME('UTC') as inserted_at
+FROM
+  `rockads-thirdparty.analytics_465936097.users_*`
+WHERE
+_TABLE_SUFFIX IN (
+  FORMAT_DATE('%Y%m%d', DATE_SUB(CURRENT_DATE(), INTERVAL 0 DAY)),
+  FORMAT_DATE('%Y%m%d', DATE_SUB(CURRENT_DATE(), INTERVAL 1 DAY)),
+  FORMAT_DATE('%Y%m%d', DATE_SUB(CURRENT_DATE(), INTERVAL 2 DAY))
+  );
+
+INSERT INTO rockads-thirdparty.churney.firebase_events
+SELECT
+*, CURRENT_DATETIME('UTC') as inserted_at
+FROM
+  `rockads-thirdparty.analytics_465936097.events_*`
+WHERE
+_TABLE_SUFFIX IN (
+  FORMAT_DATE('%Y%m%d', DATE_SUB(CURRENT_DATE(), INTERVAL 0 DAY)),
+  FORMAT_DATE('%Y%m%d', DATE_SUB(CURRENT_DATE(), INTERVAL 1 DAY)),
+  FORMAT_DATE('%Y%m%d', DATE_SUB(CURRENT_DATE(), INTERVAL 2 DAY))
+  );
+
+
+INSERT INTO rockads-thirdparty.churney.firebase_pseudonymous_users
+SELECT
+*, CURRENT_DATETIME('UTC') as inserted_at
+FROM
+  `rockads-thirdparty.analytics_465936097.pseudonymous_users_*`
+WHERE
+_TABLE_SUFFIX IN (
+  FORMAT_DATE('%Y%m%d', DATE_SUB(CURRENT_DATE(), INTERVAL 0 DAY)),
+  FORMAT_DATE('%Y%m%d', DATE_SUB(CURRENT_DATE(), INTERVAL 1 DAY)),
+  FORMAT_DATE('%Y%m%d', DATE_SUB(CURRENT_DATE(), INTERVAL 2 DAY))
+  );
+
+

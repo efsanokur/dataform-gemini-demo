@@ -1,0 +1,98 @@
+config {
+  type: "table",
+    bigquery: {
+    partitionBy: "report_date"
+  },
+  database: `${dataform.projectConfig.vars.rockadsProject}`,
+  name: "id1010631459_organic_activity_combined_metrics_unique_dm",
+  schema: "id1010631459_appsflyer_ds",
+  dependencies: ['id1010631459_organic_activity_revenues', 'id1010631459_organic_activity_event_counts_unique'],
+  tags: ['appsflyer_id1010631459_main']
+}
+
+
+WITH
+  appsflyer_count AS (
+  SELECT
+  DISTINCT
+    event_date AS report_date,
+    'id1010631459' AS app_id,
+    country_code AS geo,
+    campaign,
+    af_adset,
+    af_ad AS ad,
+    media_source,
+    appsflyer_os_id,
+    SUM(activity_event_count_vnew) activity_event_count_vnew,
+    SUM(activity_event_count_vreturning) activity_event_count_vreturning,
+    SUM(activity_event_count_cc_success_total) activity_event_count_cc_success_total,
+    SUM(activity_event_count_subscribe) activity_event_count_subscribe,
+    SUM(activity_event_count_start_trial) activity_event_count_start_trial,
+    SUM(activity_event_count_recurring_payment) activity_event_count_recurring_payment,
+
+    SUM(activity_unique_event_count_vnew) activity_unique_event_count_vnew,
+    SUM(activity_unique_event_count_vreturning) activity_unique_event_count_vreturning,
+    SUM(activity_unique_event_count_cc_success_total) activity_unique_event_count_cc_success_total,
+    SUM(activity_unique_event_count_subscribe) activity_unique_event_count_subscribe,
+    SUM(activity_unique_event_count_start_trial) activity_unique_event_count_start_trial,
+    SUM(activity_unique_event_count_recurring_payment) activity_unique_event_count_recurring_payment,
+
+  FROM
+    `${dataform.projectConfig.vars.rockadsProject}.id1010631459_appsflyer_ds.id1010631459_organic_activity_event_counts_unique`
+  GROUP BY ALL
+),
+  revenues AS (
+  SELECT
+    DISTINCT
+    event_date AS report_date,
+    'id1010631459' AS app_id,
+    country_code AS geo,
+    campaign,
+    af_adset,
+    af_ad AS ad,
+    media_source,
+    appsflyer_os_id,
+    SUM(activity_event_revenue) activity_event_revenue
+  FROM
+    `${dataform.projectConfig.vars.rockadsProject}.id1010631459_appsflyer_ds.id1010631459_organic_activity_revenues`
+  GROUP BY ALL
+)
+
+SELECT
+  IFNULL(af_counts.report_date, rvns.report_date) AS report_date,
+  IFNULL(af_counts.app_id, rvns.app_id) AS app_id,
+  IFNULL(af_counts.geo, rvns.geo) AS geo,
+  IFNULL(af_counts.campaign, rvns.campaign) AS campaign,
+  IFNULL(af_counts.af_adset, rvns.af_adset) AS af_adset,
+  IFNULL(af_counts.ad, rvns.ad) AS ad,
+  IFNULL(af_counts.media_source, rvns.media_source) AS media_source,
+  IFNULL(af_counts.appsflyer_os_id, rvns.appsflyer_os_id) AS appsflyer_os_id,
+  IFNULL(af_counts.activity_event_count_vnew, 0) AS activity_vnew,
+  IFNULL(af_counts.activity_event_count_vreturning, 0) AS activity_vreturning,
+  IFNULL(af_counts.activity_event_count_cc_success_total, 0) AS activity_cc_success_total,
+  IFNULL(af_counts.activity_event_count_subscribe, 0) AS activity_subscribe,
+  IFNULL(af_counts.activity_event_count_start_trial, 0) AS activity_start_trial,
+  IFNULL(af_counts.activity_event_count_recurring_payment, 0) AS activity_recurring_payment,
+
+  -- Unique event counts
+  IFNULL(af_counts.activity_unique_event_count_vnew, 0) AS activity_unique_vnew,
+  IFNULL(af_counts.activity_unique_event_count_vreturning, 0) AS activity_unique_vreturning,
+  IFNULL(af_counts.activity_unique_event_count_cc_success_total, 0) AS activity_unique_cc_success_total,
+  IFNULL(af_counts.activity_unique_event_count_subscribe, 0) AS activity_unique_subscribe,
+  IFNULL(af_counts.activity_unique_event_count_start_trial, 0) AS activity_unique_start_trial,
+  IFNULL(af_counts.activity_unique_event_count_recurring_payment, 0) AS activity_unique_recurring_payment,
+
+  IFNULL(rvns.activity_event_revenue, 0) AS activity_event_revenue,
+FROM
+  appsflyer_count af_counts
+FULL OUTER JOIN
+  revenues rvns
+ON
+  af_counts.report_date=rvns.report_date
+  AND af_counts.app_id=rvns.app_id
+  AND af_counts.geo=rvns.geo
+  AND af_counts.ad=rvns.ad
+  AND af_counts.media_source=rvns.media_source
+  AND af_counts.campaign=rvns.campaign
+  AND af_counts.af_adset=rvns.af_adset
+  AND af_counts.appsflyer_os_id=rvns.appsflyer_os_id

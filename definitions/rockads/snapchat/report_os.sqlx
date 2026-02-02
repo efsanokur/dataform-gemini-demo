@@ -1,0 +1,38 @@
+config {
+  type: "table",
+  bigquery: {
+    partitionBy: "created_time"
+  },
+  database: `${dataform.projectConfig.vars.rockadsProject}`,
+  name: "snapchat_report_os",
+  schema: "thirdparty_datamarts",
+  tags: ['snapchat'],
+  dependencies: ["snapchat_account_campaign_names"]
+}
+
+SELECT
+  t0.created_time,
+  account_name,
+  IFNULL(tsa.app_id, "NOT FOUND") app_name,
+  tsa.owner,
+  LOWER(operating_system) platform,
+  SUM(CAST(swipes AS float64)) total_swipes,
+  SUM(CAST(impressions AS float64)) total_imp,
+  SUM(CAST(spend AS float64)) total_spend
+FROM
+  `${dataform.projectConfig.vars.rockadsProject}.snapchat.snapchat_campaign_os_spends_*` t0
+LEFT JOIN
+  `${dataform.projectConfig.vars.rockadsProject}.mapping_tables.snapchat_account_campaign_names` sac
+ON
+  sac.campaign_id = t0.campaign_id
+LEFT JOIN
+  `${dataform.projectConfig.vars.rockadsProject}.mapping_tables.tiktok_snapchat_appnames` tsa
+ON
+  LOWER(tsa.app_code) = REGEXP_REPLACE(LOWER(SPLIT(split(campaign_name,
+          '-')[SAFE_OFFSET(0)],"_")[SAFE_OFFSET(0)]), r'copy of ', '')
+GROUP BY
+  t0.created_time,
+  account_name,
+  tsa.app_id,
+  tsa.owner,
+  platform

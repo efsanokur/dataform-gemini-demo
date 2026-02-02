@@ -1,0 +1,251 @@
+config {
+  type: "table",
+  database: `${dataform.projectConfig.vars.rockadsProject}`,
+  name: "subscription_names_durations",
+  schema: "subscription_cohorts",
+  tags: ['rockads_main_analytics_pipeline'],
+  dependencies: ["user_subscriber_detailed_report"]
+}
+
+WITH itunes_subscriber_detailed_report AS (
+WITH
+  itunes_subscriber_detailed_report AS (
+    SELECT
+      event_date,
+      app_name,
+      app_apple_id,
+      subscription_name,
+      subscription_apple_id,
+      subscription_group_id,
+      standard_subscription_duration,
+      subscription_offer_type,
+      subscription_offer_duration,
+      customer_price,
+      customer_currency,
+      developer_proceeds,
+      proceeds_currency,
+      preserved_pricing,
+      proceeds_reason,
+      device,
+      country,
+      subscriber_id,
+      refund,
+      purchase_date,
+      units,
+      account_number
+
+    FROM `rockads-thirdparty.itunes.itunes_subscriber_detailed_report_*`
+    WHERE _TABLE_SUFFIX BETWEEN '${rockads_analytics_libs.formattedBQPeriodStartDateYYYYMMDD}'
+    AND '${rockads_analytics_libs.formattedDate1DayAgoYYYYMMDD}'
+    AND account_number IN ${rockads_analytics_libs.accountNumbersSqlInClause}
+    UNION ALL
+    SELECT
+      event_date,
+      app_name,
+      app_apple_id,
+      subscription_name,
+      subscription_apple_id,
+      subscription_group_id,
+      standard_subscription_duration,
+      subscription_offer_type,
+      subscription_offer_duration,
+      SAFE_CAST(customer_price AS STRING),
+      customer_currency,
+      SAFE_CAST(developer_proceeds AS STRING),
+      proceeds_currency,
+      preserved_pricing,
+      proceeds_reason,
+      device,
+      country,
+      subscriber_id,
+      refund,
+      SAFE_CAST(purchase_date AS STRING),
+      units,
+      account_number
+    FROM
+      `rockads-thirdparty.itunes_connect_api.itunes_subscriber_detailed_report_*` iss
+    LEFT JOIN
+      (
+        SELECT DISTINCT vendor_number, account_number
+        FROM `rockads-thirdparty.itunes.itunes_vendors`
+      ) vendors
+      ON iss.vendor_number = vendors.vendor_number
+    WHERE _TABLE_SUFFIX BETWEEN '${rockads_analytics_libs.formattedBQPeriodStartDateYYYYMMDD}'
+    AND '${rockads_analytics_libs.formattedDate1DayAgoYYYYMMDD}'
+      AND vendors.vendor_number IN (
+        # kompanion
+        '87864986')
+  )
+SELECT DISTINCT * FROM itunes_subscriber_detailed_report
+),
+
+android_subscriber_detailed_report AS (
+SELECT *
+FROM `${dataform.projectConfig.vars.rockadsProject}.googlePlay.googlePlay_sales_*` gps
+WHERE _TABLE_SUFFIX BETWEEN FORMAT_DATE("%Y%m%d", DATE_TRUNC('${rockads_analytics_libs.formattedBQPeriodStartDateBqDate}', MONTH))
+    AND FORMAT_DATE("%Y%m%d", DATE_TRUNC('${rockads_analytics_libs.formattedDate1DayAgoBqDate}', MONTH))
+AND gps.order_charged_date >= '${rockads_analytics_libs.formattedBQPeriodStartDateBqDate}' AND gps.order_charged_date < '${rockads_analytics_libs.currentDate}'
+AND gps.bucket_name IN ${rockads_analytics_libs.bucketNamesSqlInClause}
+AND gps.sku_id NOT LIKE "%test%"
+),
+
+zotlo_subscriber_detailed_report AS (
+SELECT *
+FROM `${dataform.projectConfig.vars.zotloProject}.zotlo_events.purchase_*`
+WHERE  _TABLE_SUFFIX BETWEEN '${rockads_analytics_libs.formattedBQPeriodStartDateYYYYMMDD}'
+AND '${rockads_analytics_libs.formattedDate1DayAgoYYYYMMDD}'
+AND ${rockads_analytics_libs.team_names_condition} AND eventStatus = "success"
+AND packageId NOT LIKE "%test%" AND CHAR_LENGTH(packageId) > 3
+),
+
+stripe_invoices AS (
+SELECT
+      id, app_id,
+      REGEXP_REPLACE(REGEXP_REPLACE(JSON_EXTRACT_SCALAR(lines, '$.data[0].description'), r' \(.*\)', ''), r'^\d+\s×(\s\*\s)?', '') AS package_id
+FROM
+(
+SELECT id, lines, "Kegelmen" AS app_id FROM `${dataform.projectConfig.vars.rockadsProject}.stripe.kegelmen_invoices` WHERE DATE(TIMESTAMP_SECONDS(created)) < CURRENT_DATE()
+UNION ALL
+SELECT id, lines, "Moovbuddy" AS app_id FROM `${dataform.projectConfig.vars.rockadsProject}.stripe.moovbuddy_invoices` WHERE DATE(TIMESTAMP_SECONDS(created)) < CURRENT_DATE()
+UNION ALL
+SELECT id, lines, "Youngface" AS app_id FROM `${dataform.projectConfig.vars.rockadsProject}.stripe.youngface_invoices` WHERE DATE(TIMESTAMP_SECONDS(created)) < CURRENT_DATE()
+)
+WHERE LOWER(JSON_EXTRACT_SCALAR(lines, '$.data[0].description')) NOT LIKE "%test%" AND LOWER(JSON_EXTRACT_SCALAR(lines, '$.data[0].description')) NOT LIKE "%unused%"
+),
+
+stripe_charges AS (
+SELECT * FROM (
+SELECT *, "Kegelmen" AS app_id FROM `${dataform.projectConfig.vars.rockadsProject}.stripe.kegelmen_charges`
+UNION ALL
+SELECT *, "Moovbuddy" AS app_id FROM `${dataform.projectConfig.vars.rockadsProject}.stripe.moovbuddy_charges`
+UNION ALL
+SELECT *, "Youngface" AS app_id FROM `${dataform.projectConfig.vars.rockadsProject}.stripe.youngface_charges`
+) WHERE customer IS NOT NULL AND paid = TRUE AND status = "succeeded" AND captured = TRUE
+AND DATE(TIMESTAMP_SECONDS(created)) < CURRENT_DATE()
+),
+
+stripe_subscriber_detailed_report AS (
+SELECT sc.*, sinv.package_id
+FROM stripe_charges sc
+LEFT JOIN stripe_invoices sinv ON sc.invoice = sinv.id AND sc.app_id = sinv.app_id
+),
+
+subscription_names_durations AS (
+SELECT *
+FROM `${dataform.projectConfig.vars.rockadsProject}.subscription_cohorts.subscription_names_durations`
+
+UNION ALL
+
+SELECT
+      DISTINCT isdr.account_number,
+               CASE WHEN ia.company_name = "Gencontact"
+               THEN "Getcontact" ELSE ia.company_name END AS company_name,
+               "iOS" AS platform,
+               isdr.app_apple_id AS app_id, ian.app_name,
+               isdr.subscription_apple_id AS package_id, ian.sku AS subscription_bundle_id,
+               CASE WHEN isdr.subscription_name = "GetContact Premium"
+               THEN "Getcontact Premium" ELSE isdr.subscription_name END AS subscription_name,
+               isdr.standard_subscription_duration,
+      CASE
+            WHEN isdr.standard_subscription_duration = "7 Days" THEN 7
+            WHEN isdr.standard_subscription_duration = "1 Month" THEN 30
+            WHEN isdr.standard_subscription_duration = "2 Months" THEN 60
+            WHEN isdr.standard_subscription_duration = "3 Months" THEN 90
+            WHEN isdr.standard_subscription_duration = "4 Months" THEN 120
+            WHEN isdr.standard_subscription_duration = "6 Months" THEN 180
+            WHEN isdr.standard_subscription_duration = "1 Year" THEN 360
+      END AS subscription_duration_in_days
+FROM itunes_subscriber_detailed_report isdr
+LEFT JOIN `${dataform.projectConfig.vars.rockadsProject}.itunes.itunes_accounts` ia ON ia.account_number = isdr.account_number
+LEFT JOIN `${dataform.projectConfig.vars.rockadsProject}.mapping_tables.itunes_app_names` ian ON ian.apple_identifier = isdr.subscription_apple_id
+WHERE isdr.standard_subscription_duration IS NOT NULL AND TRIM(isdr.standard_subscription_duration) != ''
+
+UNION ALL
+
+SELECT
+      DISTINCT asdr.bucket_name AS account_number,
+               CASE
+                  WHEN gpt.company_name = "Gtc" THEN "Getcontact"
+                  WHEN gpt.company_name = "Moyra Limited" THEN "Moyra Teknoloji"
+                  WHEN gpt.company_name = "Moovbuddy" THEN "DGT Yazılım"
+               ELSE gpt.company_name END AS company_name,
+               'Android' AS platform, asdr.product_id AS app_id,
+               gpaan.app_name,  "" AS package_id, asdr.sku_id AS subscription_bundle_id,
+               "" AS subscription_name,
+      CASE
+            WHEN gpt.company_name IN ("Gtc", "Moyra Limited", "Moovbuddy") THEN ""
+            WHEN asdr.sku_id LIKE "%weekly%" THEN "7 Days"
+            WHEN asdr.sku_id LIKE "%monthly%" THEN "1 Month"
+            WHEN asdr.sku_id LIKE "%2months%" THEN "2 Months"
+            WHEN asdr.sku_id LIKE "%3months%" THEN "3 Months"
+            WHEN asdr.sku_id LIKE "%4months%" THEN "4 Months"
+            WHEN asdr.sku_id LIKE "%6months%" THEN "6 Months"
+            WHEN asdr.sku_id LIKE "%yearly%" THEN "1 Year"
+      END AS standard_subscription_duration,
+      CASE
+            WHEN gpt.company_name IN ("Gtc", "Moyra Limited", "Moovbuddy") THEN 0
+            WHEN asdr.sku_id LIKE "%weekly%" THEN 7
+            WHEN asdr.sku_id LIKE "%monthly%" THEN 30
+            WHEN asdr.sku_id LIKE "%2months%" THEN 60
+            WHEN asdr.sku_id LIKE "%3months%" THEN 90
+            WHEN asdr.sku_id LIKE "%4months%" THEN 120
+            WHEN asdr.sku_id LIKE "%6months%" THEN 180
+            WHEN asdr.sku_id LIKE "%yearly%" THEN 360
+      END AS subscription_duration_in_days
+FROM android_subscriber_detailed_report asdr
+LEFT JOIN `${dataform.projectConfig.vars.rockadsProject}.googlePlay.googlePlay_tokens` gpt ON gpt.bucket_name = asdr.bucket_name
+LEFT JOIN `${dataform.projectConfig.vars.rockadsProject}.mapping_tables.google_play_app_account_names` gpaan ON gpaan.product_id = asdr.product_id
+
+UNION ALL
+
+SELECT
+      DISTINCT teamName AS account_number,
+               CASE
+                  WHEN teamName = "Alivex" THEN "Kompanion"
+                  WHEN teamName = "Astral Coach &amp;amp; Moyra" THEN "Moyra Teknoloji"
+               ELSE teamName END AS company_name,
+               'Web' AS platform, CAST(appId AS STRING) AS app_id,
+               appName AS app_name, "" AS package_id,
+               packageId AS subscription_bundle_id,
+               "" AS subscription_name,
+      CASE
+            WHEN teamName IN ("Getcontact", "Astral Coach &amp;amp; Moyra") THEN ""
+            WHEN packageId LIKE "%weekly%" THEN "7 Days"
+            WHEN packageId LIKE "%monthly%" THEN "1 Month"
+            WHEN packageId LIKE "%2months%" THEN "2 Months"
+            WHEN packageId LIKE "%3months%" THEN "3 Months"
+            WHEN packageId LIKE "%4months%" THEN "4 Months"
+            WHEN packageId LIKE "%6months%" THEN "6 Months"
+            WHEN packageId LIKE "%yearly%" THEN "1 Year"
+      END AS standard_subscription_duration,
+      CASE
+            WHEN teamName IN ("Getcontact", "Astral Coach &amp;amp; Moyra") THEN 0
+            WHEN packageId LIKE "%weekly%" THEN 7
+            WHEN packageId LIKE "%monthly%" THEN 30
+            WHEN packageId LIKE "%2months%" THEN 60
+            WHEN packageId LIKE "%3months%" THEN 90
+            WHEN packageId LIKE "%4months%" THEN 120
+            WHEN packageId LIKE "%6months%" THEN 180
+            WHEN packageId LIKE "%yearly%" THEN 360
+      END AS subscription_duration_in_days
+FROM zotlo_subscriber_detailed_report
+
+UNION ALL
+
+SELECT
+      DISTINCT "DGT Yazılım" AS account_number,
+               "DGT Yazılım" AS company_name,
+               'Stripe' AS platform, ssdr.app_id,
+               ssdr.app_id AS app_name,  "" AS package_id,
+               IFNULL(IFNULL(IFNULL(ssdr.package_id, ssdr.calculated_statement_descriptor), ssdr.statement_descriptor), ssdr.description) AS subscription_bundle_id,
+               "" AS subscription_name,  "" AS standard_subscription_duration,
+               0 AS subscription_duration_in_days
+FROM stripe_subscriber_detailed_report ssdr
+)
+
+SELECT
+      DISTINCT account_number, company_name, platform, app_id,
+               app_name, package_id, subscription_bundle_id,
+               subscription_name, standard_subscription_duration,
+               subscription_duration_in_days
+FROM subscription_names_durations

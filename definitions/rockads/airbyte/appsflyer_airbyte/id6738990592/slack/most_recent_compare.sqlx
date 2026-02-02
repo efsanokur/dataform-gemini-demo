@@ -1,0 +1,154 @@
+config {
+  type: "operations",
+  database: `${dataform.projectConfig.vars.rockadsProject}`,
+  name: "id6738990592_most_recent_compare_pltv",
+  schema: "id6738990592_appsflyer_ds",
+  tags: ['id6738990592_most_recent_compare_pltv']
+}
+
+DECLARE lookback_days INT64 DEFAULT 130;
+DECLARE lookback_date DATE DEFAULT DATE_SUB(CURRENT_DATE('UTC'), INTERVAL lookback_days DAY);
+
+CREATE OR REPLACE TABLE rockads-thirdparty.id6738990592_appsflyer_ds.id6738990592_most_recent_compare_pltv
+partition by report_date
+as
+WITH main AS (
+  SELECT
+    IF(appsflyer_os_id IS NULL,
+      CASE
+        WHEN REGEXP_CONTAINS(campaign, r'_w2a_web_to_and_|_inapp_and_to_store_|_w2a_web2and_') THEN 'Android'
+        WHEN REGEXP_CONTAINS(campaign, r'_w2a_web_to_ios_|_inapp_ios_to_store_|_w2a_web2ios_|w2a_deneme') THEN 'IOS'
+        WHEN REGEXP_CONTAINS(campaign, r'_webpayment_') THEN 'Web'
+        WHEN REGEXP_CONTAINS(media_source, r'zotlo-') THEN 'Web'
+        ELSE 'IOS'
+      END,
+      CASE
+        WHEN REGEXP_CONTAINS(campaign, r'_w2a_web_to_and_|_inapp_and_to_store_|_w2a_web2and_') THEN 'Android'
+        WHEN REGEXP_CONTAINS(campaign, r'_w2a_web_to_ios_|_inapp_ios_to_store_|_w2a_web2ios_|w2a_deneme') THEN 'IOS'
+        WHEN REGEXP_CONTAINS(campaign, r'_webpayment_') THEN 'Web'
+        WHEN REGEXP_CONTAINS(media_source, r'zotlo-') THEN 'Web'
+        WHEN REGEXP_CONTAINS(appsflyer_os_id, r'_') THEN 'Android'
+        WHEN REGEXP_CONTAINS(appsflyer_os_id, r'id6738990592') THEN 'IOS'
+        ELSE 'IOS'
+      END
+    ) AS platform,
+    report_date,
+
+    -- predicted
+    SUM(pLTV_30)  AS pltv30,
+    SUM(pLTV_60)  AS pltv60,
+    SUM(pLTV_90)  AS pltv90,
+    SUM(pLTV_120) AS pltv120,
+
+    -- real
+    SUM(d30)  AS d30,
+    SUM(d60)  AS d60,
+    SUM(d90)  AS d90,
+    SUM(d120) AS d120
+
+  FROM `rockads-thirdparty.id6738990592_appsflyer_ds.id6738990592_platforms_merged_metrics_all_cost_geo_unique_with_links`
+  WHERE report_date >= lookback_date
+  GROUP BY ALL
+),
+
+stages AS (
+  SELECT 'd30' AS stage, *
+  FROM main
+  WHERE d30 IS NOT NULL
+  QUALIFY ROW_NUMBER() OVER (PARTITION BY platform ORDER BY report_date DESC) = 1
+
+  UNION ALL
+  SELECT 'd30_d60' AS stage, *
+  FROM main
+  WHERE d30 IS NOT NULL AND d60 IS NOT NULL
+  QUALIFY ROW_NUMBER() OVER (PARTITION BY platform ORDER BY report_date DESC) = 1
+
+  UNION ALL
+  SELECT 'd30_d60_d90' AS stage, *
+  FROM main
+  WHERE d30 IS NOT NULL AND d60 IS NOT NULL AND d90 IS NOT NULL
+  QUALIFY ROW_NUMBER() OVER (PARTITION BY platform ORDER BY report_date DESC) = 1
+
+  UNION ALL
+  SELECT 'd30_d60_d90_d120' AS stage, *
+  FROM main
+  WHERE d30 IS NOT NULL AND d60 IS NOT NULL AND d90 IS NOT NULL AND d120 IS NOT NULL
+  QUALIFY ROW_NUMBER() OVER (PARTITION BY platform ORDER BY report_date DESC) = 1
+),
+
+final AS (
+  SELECT
+    stage,
+    platform,
+    report_date,
+    d30, d60, d90, d120,
+    pltv30, pltv60, pltv90, pltv120,
+
+    -- percent based on stage (88.0 means 88%)
+    CASE stage
+      WHEN 'd30'               THEN SAFE_MULTIPLY(SAFE_DIVIDE(pltv30,  d30),  100)
+      WHEN 'd30_d60'           THEN SAFE_MULTIPLY(SAFE_DIVIDE(pltv60,  d60),  100)
+      WHEN 'd30_d60_d90'       THEN SAFE_MULTIPLY(SAFE_DIVIDE(pltv90,  d90),  100)
+      WHEN 'd30_d60_d90_d120'  THEN SAFE_MULTIPLY(SAFE_DIVIDE(pltv120, d120), 100)
+    END AS pct,
+
+    CASE stage
+      WHEN 'd30'               THEN ROUND(pltv30)
+      WHEN 'd30_d60'           THEN ROUND(pltv60)
+      WHEN 'd30_d60_d90'       THEN ROUND(pltv90)
+      WHEN 'd30_d60_d90_d120'  THEN ROUND(pltv120)
+    END AS prediction,
+
+    CASE stage
+      WHEN 'd30'               THEN ROUND(d30)
+      WHEN 'd30_d60'           THEN ROUND(d60)
+      WHEN 'd30_d60_d90'       THEN ROUND(d90)
+      WHEN 'd30_d60_d90_d120'  THEN ROUND(d120)
+    END AS real,
+
+    -- label based on stage thresholds
+    CASE stage
+      WHEN 'd30' THEN
+        CASE
+          WHEN SAFE_MULTIPLY(SAFE_DIVIDE(pltv30, d30), 100) < 90  THEN 'Under-prediction'
+          WHEN SAFE_MULTIPLY(SAFE_DIVIDE(pltv30, d30), 100) > 110 THEN 'Over-prediction'
+          ELSE 'Within'
+        END
+
+      WHEN 'd30_d60' THEN
+        CASE
+          WHEN SAFE_MULTIPLY(SAFE_DIVIDE(pltv60, d60), 100) < 85  THEN 'Under-prediction'
+          WHEN SAFE_MULTIPLY(SAFE_DIVIDE(pltv60, d60), 100) > 115 THEN 'Over-prediction'
+          ELSE 'Within'
+        END
+
+      WHEN 'd30_d60_d90' THEN
+        CASE
+          WHEN SAFE_MULTIPLY(SAFE_DIVIDE(pltv90, d90), 100) < 82  THEN 'Under-prediction'
+          WHEN SAFE_MULTIPLY(SAFE_DIVIDE(pltv90, d90), 100) > 118 THEN 'Over-prediction'
+          ELSE 'Within'
+        END
+
+      WHEN 'd30_d60_d90_d120' THEN
+        CASE
+          WHEN SAFE_MULTIPLY(SAFE_DIVIDE(pltv120, d120), 100) < 80  THEN 'Under-prediction'
+          WHEN SAFE_MULTIPLY(SAFE_DIVIDE(pltv120, d120), 100) > 120 THEN 'Over-prediction'
+          ELSE 'Within'
+        END
+    END AS result
+  FROM stages
+)
+
+SELECT
+  stage,
+  platform,
+  report_date,
+  pct,
+  result,
+  -- keep these if you still want them visible:
+  prediction,
+  real,
+  d30, d60, d90, d120,
+  pltv30, pltv60, pltv90, pltv120
+FROM final
+WHERE platform IN ('IOS', 'Android')

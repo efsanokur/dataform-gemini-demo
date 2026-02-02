@@ -1,0 +1,39 @@
+config {
+  type: "table",
+  bigquery: {
+    clusterBy: ["app_name"]
+  },
+  database: `${dataform.projectConfig.vars.rockadsProject}`,
+  name: "mellon_meta_videos",
+  schema: "datacan_thirdparty_api_datamarts",
+  tags: ['datacan_mellon_daily']
+}
+
+SELECT
+  DISTINCT video_id, effective_object_story_id, CASE WHEN account_id in     ('1032659200189835',
+    '1033742946748127',
+    '1033746340081121') then 'videa'
+
+    when account_id in (    '1032750390180716',
+    '1033750273414061') then 'cleaner'
+    else 'None' end as app_name,
+
+
+     CONCAT('https://www.facebook.com/0/videos/', video_id) as calculated_video_url,
+FROM `rockads-thirdparty.fb_airbyte._773901696065588_ad_creatives`
+where video_id is not null
+AND   account_id IN (
+    # Videa
+    '1032659200189835',
+    '1033742946748127',
+    '1033746340081121',
+    # Cleaner
+    '1032750390180716',
+    '1033750273414061' )
+
+UNION ALL
+
+SELECT
+  DISTINCT video_id, effective_object_story_id, 'robo' as app_name, CONCAT('https://www.facebook.com/0/videos/', video_id) as calculated_video_url
+FROM `rockads-thirdparty.fb_airbyte._1186788694772131_robo_ad_creatives`
+where video_id is not null

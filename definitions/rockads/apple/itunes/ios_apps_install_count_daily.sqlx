@@ -1,0 +1,140 @@
+config {
+  type: "table",
+  bigquery: {
+    partitionBy: "report_date"
+  },  
+  database: `${dataform.projectConfig.vars.rockadsProject}`,
+  name: "ios_apps_install_count_daily",
+  schema: "thirdparty_datamarts",
+  tags: ['ios_apps_install_count_daily']
+}
+
+SELECT DISTINCT
+  report_date,
+  account_name,
+  app_name,
+  country,
+  country_name,
+  app_version,
+  device,
+  product_type_identifier,
+  new_downloads_count,
+  re_downloads_count,
+  total_downloads_count
+FROM (
+SELECT
+  iss.begin_date AS report_date,
+  ia.account_name AS account_name,
+  IFNULL(app_name,iss.title) AS app_name,
+  iss.country_code AS country,
+  c.name AS country_name,
+  iss.version AS app_version,
+  iss.device,
+  iss.product_type_identifier,
+  SUM(CASE
+      WHEN iss.product_type_identifier IN ("1", "1F", "1T") THEN CAST(iss.units AS int64)
+      ELSE 0
+  END
+    ) AS new_downloads_count,
+  SUM(CASE
+      WHEN iss.product_type_identifier IN ("3", "3F") THEN CAST(iss.units AS int64)
+      ELSE 0
+  END
+    ) AS re_downloads_count,
+  SUM(CAST(iss.units AS int64)) AS total_downloads_count
+FROM
+  `rockads-thirdparty.itunes.itunes_sales_summary_report_*` iss
+LEFT JOIN
+  `rockads-thirdparty.mapping_tables.countries` AS c
+ON
+  iss.country_code = c.short_code
+LEFT JOIN
+  rockads-thirdparty.mapping_tables.itunes_account_names ia
+ON
+  ia.account_number = iss.account_number
+  AND ia.account_type = 'sales'
+LEFT JOIN
+  rockads-thirdparty.mapping_tables.itunes_app_names appn
+ON
+  appn.sku = iss.sku
+  AND appn.apple_identifier = iss.apple_identifier
+WHERE
+  1=1
+  AND iss.product_type_identifier IN ("1",
+    "1F",
+    "1T",
+    "3",
+    "3F")
+  --AND (iss.title LIKE "%Getcontact%" OR iss.title LIKE "%Kompanion%")
+GROUP BY
+  1,
+  2,
+  3,
+  4,
+  5,
+  6,
+  7,
+  8
+
+UNION ALL
+SELECT
+  iss.begin_date AS report_date,
+  ia.account_name AS account_name,
+  IFNULL(app_name,iss.title) AS app_name,
+  iss.country_code AS country,
+  c.name AS country_name,
+  iss.version AS app_version,
+  iss.device,
+  iss.product_type_identifier,
+  SUM(CASE
+      WHEN iss.product_type_identifier IN ("1", "1F", "1T") THEN CAST(iss.units AS int64)
+      ELSE 0
+  END
+    ) AS new_downloads_count,
+  SUM(CASE
+      WHEN iss.product_type_identifier IN ("3", "3F") THEN CAST(iss.units AS int64)
+      ELSE 0
+  END
+    ) AS re_downloads_count,
+  SUM(CAST(iss.units AS int64)) AS total_downloads_count
+FROM
+  `rockads-thirdparty.itunes_connect_api.itunes_sales_summary_report_*` iss
+LEFT JOIN (SELECT DISTINCT vendor_number, account_number FROM `rockads-thirdparty.itunes.itunes_vendors`) vendors
+ON iss.vendor_number=vendors.vendor_number
+
+LEFT JOIN
+  `rockads-thirdparty.mapping_tables.countries` AS c
+ON
+  iss.country_code = c.short_code
+LEFT JOIN
+  rockads-thirdparty.mapping_tables.itunes_account_names ia
+ON
+  ia.account_number = vendors.account_number
+  AND ia.account_type = 'sales'
+LEFT JOIN
+  rockads-thirdparty.mapping_tables.itunes_app_names appn
+ON
+  appn.sku = iss.sku
+  AND appn.apple_identifier = SAFE_CAST(iss.apple_identifier AS STRING)
+WHERE
+  1=1
+  AND iss.product_type_identifier IN ("1",
+    "1F",
+    "1T",
+    "3",
+    "3F")
+  AND iss.vendor_number in (
+  # Kompanion
+  '87864986'
+  )
+  --AND (iss.title LIKE "%Getcontact%" OR iss.title LIKE "%Kompanion%")
+GROUP BY
+  1,
+  2,
+  3,
+  4,
+  5,
+  6,
+  7,
+  8
+)

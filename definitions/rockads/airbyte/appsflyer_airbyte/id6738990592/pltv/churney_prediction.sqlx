@@ -1,0 +1,25 @@
+config {
+  type: "table",
+    bigquery: {
+    partitionBy: "DATE(install_time)",
+    clusterBy: ["geo"]
+  },
+  database: `${dataform.projectConfig.vars.rockadsProject}`,
+  name: "churney_prediction",
+  schema: "appsflyer_ltv",
+  tags: ['appsflyer_id6738990592_churney_pltv']
+}
+SELECT
+  user_id,
+  prediction_time,
+  install_time,
+  geo,
+  appsflyer_id,
+  platform,
+  ad,
+  campaign,
+  adset,
+  media_source,
+  pltv AS churney_pltv365
+FROM
+  `churney-teknasyon-public.analytics.d365_pltv`

@@ -1,0 +1,56 @@
+config {
+  type: "table",
+    bigquery: {
+    partitionBy: "event_date",
+    clusterBy: ["country_code"]
+  },
+  database: `${dataform.projectConfig.vars.rockadsProject}`,
+  name: "teli_organic_event_counts_unique",
+  schema: "teli_adjust_ds",
+  dependencies: ['teli_organic_revenues'],
+  tags: ['adjust_teli_main']
+}
+WITH main_raw_data AS (
+SELECT
+  IF(media_source='Organic', 'ORGANIC', IF(campaign_name='Organic', 'ORGANIC', campaign_name)) as campaign,
+  IF(campaign_name='Organic', 'ORGANIC',IF(media_source='Organic', 'ORGANIC', IF(adgroup_name='Organic', 'ORGANIC', adgroup_name))) as af_adset,
+  IF(campaign_name='Organic', 'ORGANIC',IF(media_source='Organic', 'ORGANIC', IF(ad_name='Organic', 'ORGANIC', ad_name))) as af_ad,
+  NULL AS  af_ad_id,
+  event_name,
+  CASE
+    WHEN media_source in ('Facebook Installs','Facebook','facebook','restricted') then 'Facebook Ads'
+    WHEN media_source = 'Organic' then 'ORGANIC'
+  ELSE media_source end as media_source,
+  adjust_os_id,
+  UPPER(country_code) AS country_code,
+  _random_user_id_ as customer_user_id,
+  DATE(install_time) AS event_date,
+  SAFE_CAST(revenue_usd AS FLOAT64) event_revenue
+FROM `rockads-thirdparty.teli_adjust_ds.all_events`
+WHERE lower(media_source) = 'organic'
+
+)
+SELECT * FROM (
+SELECT campaign, af_adset, af_ad, af_ad_id, country_code,
+media_source, adjust_os_id, event_name,
+event_date,
+count(event_name) AS event_count,
+count(distinct customer_user_id) AS unique_event_count,
+sum(CAST(event_revenue AS FLOAT64)) AS revenue,
+FROM main_raw_data 
+GROUP BY ALL
+)
+PIVOT (
+  MAX(event_count) as event_count, 
+  MAX(unique_event_count)  as unique_event_count,
+  MAX(revenue)  as revenue FOR event_name IN (
+      'trial_cancelled',
+      'subscription_cancelled',
+      'trial_started',
+      'one_time_purchase',
+      'subscription_renewed',
+      'subscription_started',
+      'subscription_expired',
+      'subscription_changed'
+  )
+)

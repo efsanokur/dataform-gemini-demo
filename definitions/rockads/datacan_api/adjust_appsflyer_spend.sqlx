@@ -1,0 +1,56 @@
+config {
+  type: "table",
+  database: `${dataform.projectConfig.vars.rockadsProject}`,
+  name: "adjust_appsflyer_spends",
+  bigquery: {
+    partitionBy: "date",
+    clusterBy: ["country", "app_id"]
+  },
+  schema: "datacan_thirdparty_api_datamarts",
+  tags: ['datacan_spends_daily']
+}
+
+SELECT
+  date,
+  country,
+  campaign AS campaign_name,
+  IFNULL(apps.app_name, main.app_id) as app_id,
+  media_source,
+  CASE
+    WHEN
+      REGEXP_CONTAINS(main.app_id, r'^\d+$')
+      OR REGEXP_CONTAINS(main.app_id, r'^id\d+$')
+      THEN 'ios'
+    ELSE 'android'
+    END AS platform,
+  'USD' AS currency,
+   SUM(total_cost) AS total_cost
+FROM `rockads-thirdparty.appsflyer.appsflyer_geo_report_*` main
+LEFT JOIN (SELECT distinct app_id, app_name FROM `rockads-thirdparty.appsflyer.appsflyer_apps` ) apps on main.app_id = apps.app_id
+WHERE
+  NOT REGEXP_CONTAINS(
+    LOWER(media_source), r'(facebook|google|tiktok|\bfb\b|fb_)')
+  AND (
+    NOT (main.app_id = 'id1010631459' OR LOWER(main.app_id) LIKE '%getcontact%')
+    OR (
+      (main.app_id = 'id1010631459' OR LOWER(main.app_id) LIKE '%getcontact%')
+      AND date < '2026-01-09'))
+GROUP BY 1, 2, 3, 4, 5, 6, 7
+
+UNION ALL
+
+SELECT
+  DATE(time_utc) AS date,
+  UPPER(country) AS country,
+  campaign AS campaign_name,
+  'Getcontact' AS app_id,
+  media_source,
+  LOWER(platform) as platform,
+  'USD' AS currency,
+  SUM(spend) AS total_cost
+FROM `rockads-thirdparty.gtc_adjust_ds.adjust_spend_20*`
+WHERE
+  DATE(time_utc) >= DATE '2026-01-09'
+  AND NOT REGEXP_CONTAINS(
+    LOWER(media_source), r'(facebook|google|tiktok|\bfb\b|fb_)')
+GROUP BY 1, 2, 3, 4, 5, 6, 7

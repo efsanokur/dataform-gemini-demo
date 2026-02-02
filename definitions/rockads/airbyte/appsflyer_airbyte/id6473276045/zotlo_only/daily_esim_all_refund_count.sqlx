@@ -1,0 +1,126 @@
+config {
+    type: "incremental",
+    name: "esim_all_refund_count_daily",
+    tags: ['id6473276045_zotlo_daily'],
+    schema: "id6473276045_appsflyer_ds",
+    database: `${dataform.projectConfig.vars.rockadsProject}`,
+    bigquery: {
+        partitionBy: "date"
+    },
+    dependencies: ['esim_all_users_original_event_dates'],
+    description: "The SQL query aggregates and summarizes refund events from the zotlo_events.refund_2* dataset for the app eSIM, gathering users' original event date information from the esim_users_original_event_dates table,  joining country details from the etl_modules.countries table for both user and card-related country information and currency rates table. It filters events for the previous day, groups the data by various attributes, and calculates metrics such as unique user count, total event count, total amount, total USD amount, and quantity.",
+}
+
+WITH
+  original_event_dates AS (
+  SELECT
+    *
+  FROM
+    `${dataform.projectConfig.vars.rockadsProject}.id6473276045_appsflyer_ds.esim_all_users_original_event_dates` )
+SELECT
+  DATE(eventDate) date,
+  eventType event_type,
+  country,
+  c.name country_name,
+  region,
+  oed.platform,
+  eventStatus status,
+  appName app_name,
+  appId app_id,
+  teamId team_id,
+  DATE(oed.original_event_date) original_event_date,
+  originalTransactionId original_transaction_id,
+  teamName team_name,
+  providerId provider_id,
+  providerName provider_name,
+  providerKey provider_key,
+  quantity,
+  paymentType payment_type,
+  packageId package_id,
+  packageName package_name,
+  is3ds,
+  transactionType transaction_type,
+  paymentMethod payment_method,
+  cardBrand card_brand,
+  statusCode status_code,
+  refundReason refund_reason,
+  thirdPlatform third_platform,
+  refundSinceTransaction refund_sinceTransaction,
+  isCampaign is_campaign,
+  t.currency,
+  utmSource AS utm_source,
+  utmTerm AS utm_term,
+  utmContent AS utm_content,
+  utmCampaign AS utm_campaign,
+  utmMedium AS utm_medium,
+  COUNT(DISTINCT t.transactionId) total_transaction_count,
+  COUNT(DISTINCT t.subscriberId) unique_user_count,
+  SUM(amount/100) total_amount,
+  SUM(ROUND(SAFE_DIVIDE(t.amount,100)*(e.rate/e.unit), 2)) total_amount_usd,
+  COUNT(DISTINCT customerId) unique_customer_count
+FROM
+  `${dataform.projectConfig.vars.zotloProject}.zotlo_events.refund_2*` t
+LEFT JOIN (
+  SELECT
+    transactionId,
+    utmSource,
+    utmTerm,
+    utmContent,
+    utmCampaign,
+    utmMedium
+  FROM
+    `${dataform.projectConfig.vars.zotloProject}.zotlo_events.purchase_2*`) utm
+ON
+  utm.transactionId = t.transactionId
+LEFT JOIN
+  original_event_dates oed
+ON
+  t.subscriberId = oed.subscriberId
+LEFT JOIN
+  `${dataform.projectConfig.defaultDatabase}.etl_modules.exchange_rates_usd_2*` e
+ON
+  t.currency = e.currency_code
+  AND DATE(eventDate) = DATE(e.currency_date)
+LEFT JOIN
+  `${dataform.projectConfig.vars.zotloProject}.etl_modules.countries` c
+ON
+  t.country = c.short_code
+WHERE
+  t._TABLE_SUFFIX = SUBSTR(FORMAT_DATE("%Y%m%d", CURRENT_DATE() -1),2)
+  AND appName = "eSIM io"
+GROUP BY
+  1,
+  2,
+  3,
+  4,
+  5,
+  6,
+  7,
+  8,
+  9,
+  10,
+  11,
+  12,
+  13,
+  14,
+  15,
+  16,
+  17,
+  18,
+  19,
+  20,
+  21,
+  22,
+  23,
+  24,
+  25,
+  26,
+  27,
+  28,
+  29,
+  30,
+  31,
+  32,
+  33,
+  34,
+  35

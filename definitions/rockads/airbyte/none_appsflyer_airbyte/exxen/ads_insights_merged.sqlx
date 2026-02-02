@@ -1,0 +1,196 @@
+config {
+  type: "table",
+  bigquery: {
+    partitionBy: "report_date",
+    clusterBy: ["country_code", "campaign_name", "app_name"]
+   },
+  database: `${dataform.projectConfig.vars.rockadsProject}`,
+  schema: "exxen_marketing_ds",
+  name: "ads_insights_exxen_merged",
+  tags: ["ads_insights_exxen"],
+  dependencies: ["exxen_event_counts", "overview_exxen_event_counts"],
+  description: "Combines Exxen ad insights with Zotlo revenue (purchases & refunds) using full outer join by date, country, and campaign."
+}
+
+WITH rvns as (
+
+SELECT
+
+  IFNULL(activity.report_date, overview.report_date) AS report_date,
+  'exxen' AS app_name,
+  IFNULL(activity.country_code, overview.country_code) AS country_code,
+  activity.ad_group_name AS ad_group_name,
+  IFNULL(activity.ad_name, overview.ad_name) AS ad_name,
+  IFNULL(activity.campaign_name, overview.campaign_name) AS campaign_name,
+  IFNULL(activity.media_source, overview.media_source) AS media_source,
+  SUM(amount) AS amount,
+  SUM(overview_amount) AS overview_amount,
+
+FROM (
+SELECT report_date,
+app_name,
+country_code,
+ad_name,
+ad_group_name,
+media_source,
+campaign_name,
+SUM(amount) AS amount,
+FROM `rockads-thirdparty.zotlo_marketing_ds.ads_purchase_refund_combined_zotlo`
+WHERE app_name = 'Exxen'
+GROUP BY ALL
+) activity
+
+FULL OUTER JOIN
+
+(
+SELECT report_date,
+app_name,
+country_code,
+ad_name,
+ad_group_name,
+media_source,
+campaign_name,
+SUM(amount) AS overview_amount,
+FROM `rockads-thirdparty.zotlo_marketing_ds.overview_ads_purchase_refund_combined_zotlo`
+WHERE app_name = 'Exxen'
+GROUP BY ALL
+) overview on
+activity.report_date = overview.report_date AND
+activity.country_code = overview.country_code AND
+activity.campaign_name = overview.campaign_name AND
+activity.ad_name = overview.ad_name AND
+activity.media_source = overview.media_source
+GROUP BY ALL
+),
+event_counts as (
+  SELECT * FROM rockads-thirdparty.exxen_marketing_ds.exxen_event_counts
+),
+overview_event_counts as (
+  SELECT * FROM rockads-thirdparty.exxen_marketing_ds.overview_exxen_event_counts
+),
+
+exxen_aggregated as (
+SELECT
+  IFNULL(a.report_date, b.report_date) AS report_date,
+  'exxen' AS app_name,
+  IFNULL(a.country_code, b.country_code) AS country_code,
+  a.ad_group_name AS ad_group_name,
+  IFNULL(a.ad_name, b.ad_name) AS ad_name,
+  IFNULL(a.campaign_name, b.campaign_name) AS campaign_name,
+  IFNULL(a.media_source, b.media_source) AS media_source,
+  ANY_VALUE(a.thumbnail_url) AS thumbnail_url,
+  ANY_VALUE(a.video_url) AS video_url,
+  SUM(a.total_spend) AS total_spend,
+  SUM(a.total_impressions) AS total_impressions,
+  SUM(a.total_click) AS total_click,
+  SUM(a.total_conversions) AS total_conversions,
+  SUM(a.fb_event_count_mobile_purchase) AS fb_event_count_mobile_purchase,
+  SUM(a.fb_event_value_mobile_purchase) AS fb_event_value_mobile_purchase,
+  SUM(a.fb_event_count_omni_purchase) AS fb_event_count_omni_purchase,
+  SUM(a.fb_event_value_omni_purchase) AS fb_event_value_omni_purchase,
+  SUM(a.fb_event_count_add_to_cart) AS fb_event_count_add_to_cart,
+  SUM(a.fb_event_count_p25_watched) AS fb_event_count_p25_watched,
+  SUM(b.amount) AS revenue,
+  SUM(b.amount) - SUM(a.total_spend) AS net_profit,
+  SUM(b.overview_amount) as overview_revenue
+FROM
+  `rockads-thirdparty.exxen_marketing_ds.ads_insights_combined_exxen` a
+FULL OUTER JOIN
+   rvns as b
+ON
+a.report_date = b.report_date AND
+a.country_code = b.country_code AND
+a.campaign_name = b.campaign_name AND
+a.ad_name = b.ad_name AND
+a.media_source = b.media_source
+GROUP BY
+  1,2,3,4,5,6,7
+)
+
+SELECT   IFNULL(agr.report_date, IFNULL(ec.event_date, oec.event_date)) AS report_date,
+  IFNULL(agr.app_name, IFNULL(ec.app_name, oec.app_name)) AS app_name,
+  IFNULL(agr.country_code, IFNULL(ec.country_code, oec.country_code)) AS country_code,
+  IFNULL(agr.country_code, IFNULL(ec.country_code, oec.country_code)) AS geo,
+  IFNULL(agr.ad_group_name, CAST(ec.ad_group_name AS STRING)) AS ad_group_name,
+  IFNULL(agr.ad_name, IFNULL(ec.ad_name, oec.ad_name)) AS ad_name,
+  IFNULL(agr.campaign_name, IFNULL(ec.campaign_name, oec.campaign_name)) AS campaign_name,
+  IFNULL(agr.media_source, IFNULL(ec.media_source, oec.media_source)) AS media_source,
+  ANY_VALUE(agr.thumbnail_url) AS thumbnail_url,
+  ANY_VALUE(agr.video_url) AS video_url,
+  SUM(agr.total_spend) AS total_spend,
+  SUM(agr.total_spend) AS total_cost,
+  SUM(agr.total_impressions) AS total_impressions,
+  SUM(agr.total_click) AS total_click,
+  SUM(agr.total_conversions) AS total_conversions,
+  SUM(agr.fb_event_count_mobile_purchase) AS fb_event_count_mobile_purchase,
+  SUM(agr.fb_event_value_mobile_purchase) AS fb_event_value_mobile_purchase,
+  SUM(agr.fb_event_count_omni_purchase) AS fb_event_count_omni_purchase,
+  SUM(agr.fb_event_value_omni_purchase) AS fb_event_value_omni_purchase,
+  SUM(agr.fb_event_count_add_to_cart) AS fb_event_count_add_to_cart,
+  SUM(agr.fb_event_count_p25_watched) AS fb_event_count_p25_watched,
+  SUM(agr.revenue) AS activity_revenue,
+  SUM(agr.net_profit) AS net_profit,
+  SUM(agr.overview_revenue) AS overview_revenue,
+  SUM(agr.overview_revenue) AS event_revenue,
+  SUM(agr.revenue) AS activity_event_revenue,
+  SUM(activity_event_count_reactive) zotlo_activity_event_count_reactive,
+  SUM(activity_revenue_reactive) zotlo_activity_revenue_reactive,
+  SUM(activity_event_count_trial_to_paid) zotlo_activity_event_count_trial_to_paid,
+  SUM(activity_revenue_trial_to_paid) zotlo_activity_revenue_trial_to_paid,
+  SUM(activity_event_count_trial) zotlo_activity_event_count_trial,
+  SUM(activity_revenue_trial) zotlo_activity_revenue_trial,
+  SUM(activity_event_count_renewal) zotlo_activity_event_count_renewal,
+  SUM(activity_revenue_renewal) zotlo_activity_revenue_renewal,
+  SUM(activity_event_count_set_quantity) zotlo_activity_event_count_set_quantity ,
+  SUM(activity_revenue_set_quantity) zotlo_activity_revenue_set_quantity ,
+  SUM(activity_event_count_consumable) zotlo_activity_event_count_consumable,
+  SUM(activity_revenue_consumable) zotlo_activity_revenue_consumable,
+  SUM(activity_event_count_start_paid) zotlo_activity_event_count_start_paid,
+  SUM(activity_revenue_start_paid) zotlo_activity_revenue_start_paid,
+  SUM(activity_event_count_package_upgrate) zotlo_activity_event_count_package_upgrate,
+  SUM(activity_revenue_package_upgrate) zotlo_activity_revenue_package_upgrate,
+  SUM(activity_event_count_epin) zotlo_activity_event_count_epin,
+  SUM(activity_revenue_epin) zotlo_activity_revenue_epin,
+  SUM(activity_event_count_package_upgrade) zotlo_activity_event_count_package_upgrade,
+  SUM(activity_revenue_package_upgrade) zotlo_activity_revenue_package_upgrade,
+  SUM(overview_event_count_reactive) zotlo_overview_event_count_reactive,
+  SUM(overview_revenue_reactive) zotlo_overview_revenue_reactive,
+  SUM(overview_event_count_trial_to_paid) zotlo_overview_event_count_trial_to_paid,
+  SUM(overview_revenue_trial_to_paid) zotlo_overview_revenue_trial_to_paid,
+  SUM(overview_event_count_trial) zotlo_overview_event_count_trial,
+  SUM(overview_revenue_trial) zotlo_overview_revenue_trial,
+  SUM(overview_event_count_renewal) zotlo_overview_event_count_renewal,
+  SUM(overview_revenue_renewal) zotlo_overview_revenue_renewal,
+  SUM(overview_event_count_set_quantity)zotlo_overview_event_count_set_quantity ,
+  SUM(overview_revenue_set_quantity)zotlo_overview_revenue_set_quantity ,
+  SUM(overview_event_count_consumable) zotlo_overview_event_count_consumable,
+  SUM(overview_revenue_consumable)zotlo_overview_revenue_consumable,
+  SUM(overview_event_count_start_paid)zotlo_overview_event_count_start_paid,
+  SUM(overview_revenue_start_paid)zotlo_overview_revenue_start_paid,
+  SUM(overview_event_count_package_upgrate)zotlo_overview_event_count_package_upgrate,
+  SUM(overview_revenue_package_upgrate)zotlo_overview_revenue_package_upgrate,
+  SUM(overview_event_count_epin)zotlo_overview_event_count_epin,
+  SUM(overview_revenue_epin)zotlo_overview_revenue_epin,
+  SUM(overview_event_count_package_upgrade)zotlo_overview_event_count_package_upgrade,
+  SUM(overview_revenue_package_upgrade)zotlo_overview_revenue_package_upgrade,
+FROM exxen_aggregated agr
+FULL OUTER JOIN
+   event_counts as ec
+ON
+agr.report_date = ec.event_date AND
+agr.country_code = ec.country_code AND
+agr.campaign_name = ec.campaign_name AND
+agr.ad_name = ec.ad_name AND
+agr.media_source = ec.media_source
+
+FULL OUTER JOIN
+   overview_event_counts as oec
+ON
+agr.report_date = oec.event_date AND
+agr.country_code = oec.country_code AND
+agr.campaign_name = oec.campaign_name AND
+agr.ad_name = oec.ad_name AND
+agr.media_source = oec.media_source
+
+GROUP BY
+  1,2,3,4,5,6,7,8

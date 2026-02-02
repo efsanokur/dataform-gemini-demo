@@ -1,0 +1,57 @@
+config {
+  type: "table",
+  database: `${dataform.projectConfig.vars.rockadsProject}`,
+  name: "googleAds_spends_api",
+  schema: "datacan_thirdparty_api_datamarts",
+  dependencies: ["snapchat_spends_api"],
+  tags: ['datacan_spends_daily']
+}
+
+WITH campaigns as (
+SELECT DISTINCT id, app_id, app_store
+FROM `${dataform.projectConfig.vars.rockadsProject}.googleAds.googleAds_campaigns`
+WHERE app_id != ''
+),
+ios_apps as (
+  SELECT DISTINCT apple_identifier, app_name FROM
+          `${dataform.projectConfig.vars.rockadsProject}.mapping_tables.itunes_app_names`
+),
+android_apps as (
+    SELECT DISTINCT product_id, app_name
+    FROM `${dataform.projectConfig.vars.rockadsProject}.mapping_tables.google_play_app_account_names`
+)
+
+SELECT
+  spends.created_time,
+  app_names.app_name,
+  t1.customer_client_name,
+  campaign_name,
+  spends.campaign_id,
+  'USD' AS currency_type,
+  'GoogleAds' as channel,
+  SUM(CAST(spend AS float64) /
+    CASE
+      WHEN t1.currency = 'USD' THEN 1
+      ELSE currency_rate
+  END
+    ) amount
+FROM
+  `${dataform.projectConfig.vars.rockadsProject}.googleAds.googleAds_campaign_spends_*` spends
+LEFT JOIN
+  `${dataform.projectConfig.vars.rockadsProject}.mapping_tables.googleads_customer_client_names ` AS t1
+ON
+  spends.customer_client_id = t1.customer_client_id
+LEFT JOIN
+  `${dataform.projectConfig.vars.rockadsProject}.mapping_tables.currency_rates_*` t3
+ON
+  spends.created_time = t3.date
+  AND t3.relative_currency = t1.currency
+LEFT JOIN (
+  SELECT campaigns.id,
+  IFNULL(ios_apps.app_name, IFNULL(android_apps.app_name, NULL)) as app_name
+  FROM campaigns
+  LEFT JOIN ios_apps on campaigns.app_id=ios_apps.apple_identifier
+  LEFT JOIN android_apps ON campaigns.app_id=android_apps.product_id
+) app_names ON app_names.id=spends.campaign_id
+GROUP BY
+1,2,3,4,5,6

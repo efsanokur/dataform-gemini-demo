@@ -1,0 +1,92 @@
+config {
+  type: "table",
+  database: `${dataform.projectConfig.vars.rockadsProject}`,
+  name: "itunes_app_names",
+  schema: "mapping_tables",
+  tags: ['itunes_app_names']
+}
+
+SELECT DISTINCT sku, apple_identifier, app_name  FROM (
+SELECT
+  DISTINCT t0.sku,
+  t0.apple_identifier,
+  title AS app_name
+FROM (
+  SELECT
+    DISTINCT sku,
+    apple_identifier,
+    CASE
+      WHEN LENGTH(parent_identifier)>1 THEN parent_identifier
+      ELSE sku
+  END
+    AS real_sku
+  FROM
+    `rockads-thirdparty.itunes.itunes_sales_summary_report_*`
+  )t0
+LEFT JOIN (
+  SELECT
+    DISTINCT apple_identifier,
+    sku,
+    title
+  FROM (
+    SELECT
+      apple_identifier,
+      sku,
+      title,
+      ROW_NUMBER() OVER(PARTITION BY apple_identifier ORDER BY begin_date DESC) rn
+    FROM
+      `rockads-thirdparty.itunes.itunes_sales_summary_report_*`
+    WHERE
+      LENGTH(parent_identifier)<2
+  )
+  WHERE
+    rn = 1)t1
+ON
+  t0.real_sku = t1.sku
+
+# New version itunes connect
+UNION ALL
+SELECT
+  DISTINCT t0.sku,
+  SAFE_CAST(t0.apple_identifier AS STRING),
+  title AS app_name
+FROM (
+  SELECT
+    DISTINCT sku,
+    apple_identifier,
+    CASE
+      WHEN LENGTH(parent_identifier)>1 THEN parent_identifier
+      ELSE sku
+  END
+    AS real_sku
+  FROM
+    `rockads-thirdparty.itunes_connect_api.itunes_sales_summary_report_*`
+  WHERE vendor_number in (
+    # Kompanion
+    '87864986')
+  )t0
+LEFT JOIN (
+  SELECT
+    DISTINCT apple_identifier,
+    sku,
+    title
+  FROM (
+    SELECT
+      apple_identifier,
+      sku,
+      title,
+      ROW_NUMBER() OVER(PARTITION BY apple_identifier ORDER BY begin_date DESC) rn
+    FROM
+      `rockads-thirdparty.itunes_connect_api.itunes_sales_summary_report_*`
+    WHERE
+      LENGTH(parent_identifier)<2 AND vendor_number in (
+        # Kompanion
+        '87864986'
+        )
+    )
+  WHERE
+    rn = 1)t1
+
+ON
+  t0.real_sku = t1.sku
+)

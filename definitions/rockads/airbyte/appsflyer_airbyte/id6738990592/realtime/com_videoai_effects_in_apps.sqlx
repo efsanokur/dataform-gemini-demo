@@ -1,0 +1,92 @@
+config {
+  type: "operations",
+  database: `${dataform.projectConfig.vars.rockadsProject}`,
+  name: "com_videoai_effects_update_realtime_appsflyer",
+  schema: "realtime_appsflyer_events",
+  tags: ['realtime_appsflyer_events']
+}
+
+CREATE OR REPLACE EXTERNAL TABLE
+  `rockads-thirdparty.realtime_appsflyer_events.com_videoai_effects_events_ext` ( payload JSON,
+    meta JSON ) OPTIONS ( format = 'JSON',
+    uris = ['gs://appsflyer_realtime_bucket/com_videoai_effects_events/*'] );
+
+
+# table create
+CREATE TABLE IF NOT EXISTS
+  `rockads-thirdparty.realtime_appsflyer_events.com_videoai_effects_events_latest` ( appsflyer_os_id STRING,
+    af_ad STRING,
+    af_ad_id STRING,
+    campaign STRING,
+    campaign_id STRING,
+    event_name STRING,
+    event_time TIMESTAMP,
+    event_value STRING,
+    appsflyer_id STRING,
+    customer_user_id STRING,
+    country_code STRING,
+    install_time TIMESTAMP,
+    media_source STRING,
+    event_revenue FLOAT64,
+    adset STRING,
+    attributed_touch_time TIMESTAMP,
+    event_revenue_currency STRING,
+    event_revenue_usd FLOAT64,
+    load_timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP() )
+PARTITION BY
+  DATE(event_time);
+
+# upd
+MERGE
+  `rockads-thirdparty.realtime_appsflyer_events.com_videoai_effects_events_latest` AS T
+USING
+  (
+  SELECT
+    -- core ids
+    JSON_VALUE(payload, '$.app_id') AS appsflyer_os_id,
+    JSON_VALUE(payload, '$.af_ad') AS af_ad,
+    JSON_VALUE(payload, '$.af_ad_id') AS af_ad_id,
+    JSON_VALUE(payload, '$.campaign') AS campaign,
+    JSON_VALUE(payload, '$.af_c_id') AS campaign_id,
+    JSON_VALUE(payload, '$.event_name') AS event_name,
+    SAFE.PARSE_TIMESTAMP( '%Y-%m-%d %H:%M:%E*S', JSON_VALUE(payload, '$.event_time') ) AS event_time,
+    JSON_VALUE(payload, '$.event_value') AS event_value,
+    JSON_VALUE(payload, '$.appsflyer_id') AS appsflyer_id,
+    JSON_VALUE(payload, '$.customer_user_id') AS customer_user_id,
+    JSON_VALUE(payload, '$.geo') AS country_code,
+    SAFE.PARSE_TIMESTAMP( '%Y-%m-%d %H:%M:%E*S', JSON_VALUE(payload, '$.install_time') ) AS install_time,
+    JSON_VALUE(payload, '$.media_source') AS media_source,
+    SAFE_CAST( JSON_VALUE(payload, '$.event_revenue') AS FLOAT64 ) AS event_revenue,
+    COALESCE( JSON_VALUE(payload, '$.adset'), JSON_VALUE(payload, '$.af_adset') ) AS adset,
+    SAFE.PARSE_TIMESTAMP( '%Y-%m-%d %H:%M:%E*S', JSON_VALUE(payload, '$.attributed_touch_time') ) AS attributed_touch_time,
+    JSON_VALUE(payload, '$.event_revenue_currency') AS event_revenue_currency,
+    SAFE_CAST( JSON_VALUE(payload, '$.event_revenue_usd') AS FLOAT64 ) AS event_revenue_usd
+  FROM
+    `rockads-thirdparty.realtime_appsflyer_events.com_videoai_effects_events_ext` ) AS S
+ON
+  T.appsflyer_id = S.appsflyer_id
+  AND T.event_time = S.event_time
+  AND T.event_name = S.event_name
+  WHEN NOT MATCHED
+  THEN
+INSERT
+  ( appsflyer_os_id,
+    af_ad,
+    af_ad_id,
+    campaign,
+    campaign_id,
+    event_name,
+    event_time,
+    event_value,
+    appsflyer_id,
+    customer_user_id,
+    country_code,
+    install_time,
+    media_source,
+    event_revenue,
+    adset,
+    attributed_touch_time,
+    event_revenue_currency,
+    event_revenue_usd )
+VALUES
+  ( S.appsflyer_os_id, S.af_ad, S.af_ad_id, S.campaign, S.campaign_id, S.event_name, S.event_time, S.event_value, S.appsflyer_id, S.customer_user_id, S.country_code, S.install_time, S.media_source, S.event_revenue, S.adset, S.attributed_touch_time, S.event_revenue_currency, S.event_revenue_usd );

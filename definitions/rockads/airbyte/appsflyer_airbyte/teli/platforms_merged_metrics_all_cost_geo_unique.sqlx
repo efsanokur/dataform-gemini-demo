@@ -1,0 +1,136 @@
+config {
+  type: "table",
+    bigquery: {
+    partitionBy: "report_date"
+  },
+  database: `${dataform.projectConfig.vars.rockadsProject}`,
+  name: "teli_platforms_merged_metrics_all_cost_geo_unique",
+  schema: "teli_adjust_ds",
+  dependencies: ['teli_combined_metrics_unique_dm'],
+  tags: ['adjust_teli_main']
+}
+
+SELECT
+DISTINCT
+  IFNULL(metrics_dm.report_date, cost_dm.report_date) AS report_date,
+  IFNULL(metrics_dm.app_id, cost_dm.app_id) AS app_id,
+  IFNULL(metrics_dm.geo, cost_dm.geo) AS geo,
+  IFNULL(metrics_dm.campaign, cost_dm.campaign) AS campaign,
+  IFNULL(metrics_dm.adset, cost_dm.adset) AS adset,
+  IFNULL(metrics_dm.ad, cost_dm.ad) AS ad,
+  IFNULL(metrics_dm.media_source, cost_dm.media_source) AS media_source,
+  IFNULL(metrics_dm.adjust_os_id, cost_dm.adjust_os_id) AS adjust_os_id,
+
+  IFNULL(metrics_dm.trial_cancelled,0)       trial_cancelled,
+  IFNULL(metrics_dm.subscription_cancelled,0)       subscription_cancelled,
+  IFNULL(metrics_dm.trial_started,0)       trial_started,
+  IFNULL(metrics_dm.one_time_purchase,0)       one_time_purchase,
+  IFNULL(metrics_dm.subscription_renewed,0)       subscription_renewed,
+  IFNULL(metrics_dm.subscription_started,0)       subscription_started,
+  IFNULL(metrics_dm.subscription_expired,0)       subscription_expired,
+  IFNULL(metrics_dm.subscription_changed,0)       subscription_changed  ,
+  -- Unique event counts
+  IFNULL(metrics_dm.unique_trial_cancelled, 0) AS       unique_trial_cancelled,
+  IFNULL(metrics_dm.unique_subscription_cancelled, 0) AS       unique_subscription_cancelled,
+  IFNULL(metrics_dm.unique_trial_started, 0) AS       unique_trial_started,
+  IFNULL(metrics_dm.unique_one_time_purchase, 0) AS       unique_one_time_purchase,
+  IFNULL(metrics_dm.unique_subscription_renewed, 0) AS       unique_subscription_renewed,
+  IFNULL(metrics_dm.unique_subscription_started, 0) AS       unique_subscription_started,
+  IFNULL(metrics_dm.unique_subscription_expired, 0) AS       unique_subscription_expired,
+  IFNULL(metrics_dm.unique_subscription_changed, 0) AS       unique_subscription_changed,
+  -- Revenues
+    IFNULL(metrics_dm.revenue_trial_cancelled,0) as revenue_trial_cancelled,
+    IFNULL(metrics_dm.revenue_subscription_cancelled,0) as revenue_subscription_cancelled,
+    IFNULL(metrics_dm.revenue_trial_started,0) as revenue_trial_started,
+    IFNULL(metrics_dm.revenue_one_time_purchase,0) as revenue_one_time_purchase,
+    IFNULL(metrics_dm.revenue_subscription_renewed,0) as revenue_subscription_renewed,
+    IFNULL(metrics_dm.revenue_subscription_started,0) as revenue_subscription_started,
+    IFNULL(metrics_dm.revenue_subscription_expired,0) as revenue_subscription_expired,
+    IFNULL(metrics_dm.revenue_subscription_changed,0) as revenue_subscription_changed,
+
+
+  IFNULL(metrics_dm.event_revenue, 0) AS event_revenue,
+  IFNULL(cost_dm.total_cost, 0) AS total_cost,
+  IFNULL(cost_dm.total_clicks, 0) AS total_clicks,
+  IFNULL(cost_dm.total_installs, 0) AS total_installs,
+
+
+  IFNULL(cost_dm.total_impressions, 0) AS total_impressions,
+  IFNULL(cost_dm.total_re_attributions, 0) AS total_re_attributions,
+  IFNULL(cost_dm.total_re_engagements, 0) AS total_re_engagements,
+  IFNULL(cost_dm.total_video_completions, 0) AS total_video_completions,
+  IFNULL(cost_dm.total_video_25p_views, 0) AS total_video_25p_views,
+  IFNULL(cost_dm.total_video_50p_views, 0) AS total_video_50p_views,
+  IFNULL(cost_dm.total_video_75p_views, 0) AS total_video_75p_views,
+  IFNULL(cost_dm.fb_total_outbound_clicks, 0) AS fb_total_outbound_clicks,
+  IFNULL(cost_dm.fb_total_impressions, 0) AS fb_total_impressions,
+  IFNULL(cost_dm.fb_total_impressions, 0) AS fb_total_clicks,
+FROM
+  `${dataform.projectConfig.vars.rockadsProject}.teli_adjust_ds.teli_combined_metrics_unique_dm` metrics_dm
+FULL OUTER JOIN
+  `${dataform.projectConfig.vars.rockadsProject}.teli_adjust_ds.teli_platforms_merged_all_cost_geo` cost_dm
+ON
+  metrics_dm.report_date=cost_dm.report_date
+  AND metrics_dm.app_id=cost_dm.app_id
+  AND metrics_dm.geo=cost_dm.geo
+  AND metrics_dm.ad=cost_dm.ad
+  AND metrics_dm.media_source=cost_dm.media_source
+  AND metrics_dm.campaign=cost_dm.campaign
+  AND metrics_dm.adset=cost_dm.adset
+  AND metrics_dm.adjust_os_id=cost_dm.adjust_os_id
+QUALIFY ROW_NUMBER() OVER (
+  PARTITION BY
+    report_date,
+    app_id,
+    geo,
+    campaign,
+    adset,
+    ad,
+    media_source,
+    adjust_os_id,
+    -- Event counts
+    CAST(trial_cancelled AS STRING),
+    CAST(subscription_cancelled AS STRING),
+    CAST(trial_started AS STRING),
+    CAST(one_time_purchase AS STRING),
+    CAST(subscription_renewed AS STRING),
+    CAST(subscription_started AS STRING),
+    CAST(subscription_expired AS STRING),
+    CAST(subscription_changed AS STRING),
+
+    -- Unique event counts
+    CAST(unique_trial_cancelled AS STRING),
+    CAST(unique_subscription_cancelled AS STRING),
+    CAST(unique_trial_started AS STRING),
+    CAST(unique_one_time_purchase AS STRING),
+    CAST(unique_subscription_renewed AS STRING),
+    CAST(unique_subscription_started AS STRING),
+    CAST(unique_subscription_expired AS STRING),
+    CAST(unique_subscription_changed AS STRING),
+
+    -- Revenues
+    CAST(revenue_trial_cancelled AS STRING),
+    CAST(revenue_subscription_cancelled AS STRING),
+    CAST(revenue_trial_started AS STRING),
+    CAST(revenue_one_time_purchase AS STRING),
+    CAST(revenue_subscription_renewed AS STRING),
+    CAST(revenue_subscription_started AS STRING),
+    CAST(revenue_subscription_expired AS STRING),
+    CAST(revenue_subscription_changed AS STRING),
+
+    CAST(event_revenue AS STRING),
+    CAST(total_cost AS STRING),
+    CAST(total_clicks AS STRING),
+    CAST(total_installs AS STRING),
+    CAST(total_impressions AS STRING),
+    CAST(total_re_attributions AS STRING),
+    CAST(total_re_engagements AS STRING),
+    CAST(total_video_completions AS STRING),
+    CAST(total_video_25p_views AS STRING),
+    CAST(total_video_50p_views AS STRING),
+    CAST(total_video_75p_views AS STRING),
+    CAST(fb_total_outbound_clicks AS STRING),
+    CAST(fb_total_impressions AS STRING),
+    CAST(fb_total_impressions AS STRING)
+  ORDER BY adjust_os_id DESC
+) = 1

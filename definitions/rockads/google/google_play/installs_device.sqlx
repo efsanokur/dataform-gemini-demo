@@ -1,0 +1,28 @@
+config {
+    type: "operations",
+    database: `${dataform.projectConfig.vars.rockadsProject}`,
+    name: "googlePlay_installs_device_report",
+    schema: "thirdparty_datamarts",
+    tags: ['google_play'],
+    dependencies: ["google_play_app_account_names"]
+}
+
+DELETE FROM `${dataform.projectConfig.vars.rockadsProject}.thirdparty_datamarts.googlePlay_installs_device_report` 
+WHERE report_date >= DATE_TRUNC(DATE_SUB(CURRENT_DATE(), INTERVAL 1 MONTH), MONTH);
+
+INSERT INTO `${dataform.projectConfig.vars.rockadsProject}.thirdparty_datamarts.googlePlay_installs_device_report`
+SELECT 
+    DATE(gdi.date) AS report_date,
+    an.account_name, 
+    an.app_name, 
+    gdi.package_name, 
+    IFNULL(gdi.device, "Unknown") AS device,
+    SUM(gdi.daily_device_installs) AS total_device_install, 
+    SUM(gdi.daily_user_installs) AS total_user_install, 
+    SUM(gdi.daily_user_uninstalls) AS total_user_uninstall
+FROM 
+(SELECT * FROM `${dataform.projectConfig.vars.rockadsProject}.app_stats.googlePlay_device_installs_*`
+WHERE _TABLE_SUFFIX BETWEEN FORMAT_DATE("%Y%m%d", DATE_TRUNC(DATE_SUB(CURRENT_DATE(), INTERVAL 1 MONTH), MONTH))
+AND FORMAT_DATE("%Y%m%d", DATE_TRUNC(CURRENT_DATE(), MONTH))) gdi
+LEFT JOIN `${dataform.projectConfig.vars.rockadsProject}.mapping_tables.google_play_app_account_names` an ON gdi.package_name = an.product_id
+GROUP BY 1,2,3,4,5

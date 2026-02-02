@@ -1,0 +1,26 @@
+config {
+  type: "table",
+  bigquery: {
+    partitionBy: "created_time"
+  },
+  database: `${dataform.projectConfig.vars.rockadsProject}`,
+  name: "admost_earnings",
+  schema: "datacan_thirdparty_api_datamarts",
+  tags: ['datacan_earnings_daily']
+}
+
+SELECT
+  DATE(FORMAT_DATE('%F', PARSE_DATE('%Y%m%d', _TABLE_SUFFIX))) AS created_time,
+  name as app_name,
+  PublisherID as account_id,
+  'USD' AS currency_type,
+    CASE
+    WHEN Network IS NOT NULL AND Network != '' THEN INITCAP(LOWER(CONCAT('ADMOST-', Network)))
+    ELSE NULL
+  END AS channel ,
+  SUM(AdRevenue) as amount
+FROM
+  `${dataform.projectConfig.vars.rockadsProject}.admost.network_based_ad_revenues_*` revenues
+LEFT JOIN `${dataform.projectConfig.vars.rockadsProject}.admost.apps` apps on revenues.appId=apps.app_id
+where Network not in ('ADMOB', 'GOOGLEPLAY', 'ITUNES', 'APPLE')
+GROUP BY ALL

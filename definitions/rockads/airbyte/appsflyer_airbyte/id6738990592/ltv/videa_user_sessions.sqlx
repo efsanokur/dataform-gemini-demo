@@ -1,0 +1,33 @@
+config {
+    type: "incremental",
+    name: "videa_user_sessions",
+    tags: ['appsflyer_id6738990592_user_based'],
+    database: `${dataform.projectConfig.vars.rockadsProject}`,
+    schema: "appsflyer_ltv",
+    uniqueKey: ["session_id", "user_id"],
+    bigquery: {
+        partitionBy: "DATE(session_start_time)",
+        clusterBy: ["user_id"]
+    },
+    description: "Incremental session table derived from Amplitude raw events."
+}
+SELECT
+  user_id,
+  session_id,
+  MIN(CASE WHEN event_type = 'session_start' THEN event_time END)
+        AS sess_start,
+  MAX(CASE WHEN event_type = 'session_end' THEN event_time END)
+        AS sess_end,
+  TIMESTAMP_DIFF(
+    MAX(CASE WHEN event_type = 'session_end' THEN event_time END),
+    MIN(CASE WHEN event_type = 'session_start' THEN event_time END),
+    SECOND
+  ) as duration_sec
+FROM
+  `rockads-thirdparty.amplitude_raw.EVENTS_664196`
+WHERE
+  event_type IN ('session_start', 'session_end')
+  AND user_id IS NOT NULL
+  AND session_id IS NOT NULL
+  AND session_id != -1
+GROUP BY 1, 2

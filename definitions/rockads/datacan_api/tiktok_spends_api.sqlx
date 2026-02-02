@@ -1,0 +1,59 @@
+config {
+  type: "table",
+  database: `${dataform.projectConfig.vars.rockadsProject}`,
+  name: "tiktok_spends_api",
+  schema: "datacan_thirdparty_api_datamarts",
+  tags: ['datacan_spends_daily']
+}
+
+WITH app_campaign_mapping AS (
+  SELECT
+  DISTINCT
+  ad_grp.campaign_id,
+  aps.app_name
+FROM
+  `${dataform.projectConfig.vars.rockadsProject}.tiktok.tiktok_ad_groups` ad_grp
+LEFT JOIN (
+  SELECT
+    DISTINCT app_id,
+    app_name
+  FROM
+    `${dataform.projectConfig.vars.rockadsProject}.tiktok.tiktok_apps`) aps
+ON
+  ad_grp.app_id=aps.app_id
+)
+SELECT
+  os_spends.created_time,
+  IFNULL(acm.app_name, IFNULL(tsa.app_id, NULL)) as app_name,
+  adv_names.advertiser_name,
+  campaign_name,
+  os_spends.campaign_id,
+  'USD' AS currency_type,
+  'Tiktok' as channel,
+  SUM(CAST(spend AS float64) * IFNULL((CASE
+          WHEN os_spends.currency = 'USD' THEN 1
+          ELSE currency_rate
+      END
+        ),1)) amount
+FROM
+  `${dataform.projectConfig.vars.rockadsProject}.tiktok.tiktok_campaign_os_spends_*` os_spends
+LEFT JOIN
+  ${dataform.projectConfig.vars.rockadsProject}.mapping_tables.tiktok_advertiser_names adv_names
+ON
+  os_spends.advertiser_id = adv_names.advertiser_id
+LEFT JOIN
+  app_campaign_mapping acm
+ON
+  acm.campaign_id = os_spends.campaign_id
+LEFT JOIN
+  `${dataform.projectConfig.vars.rockadsProject}.mapping_tables.currency_rates_*` cr
+ON
+  os_spends.currency = cr.relative_currency
+  AND cr.date = os_spends.created_time
+LEFT JOIN
+  ${dataform.projectConfig.vars.rockadsProject}.mapping_tables.tiktok_snapchat_appnames tsa
+ON
+  LOWER(tsa.app_code) = LOWER(SPLIT(split(campaign_name,
+        '-')[SAFE_OFFSET(0)],"_")[SAFE_OFFSET(0)])
+GROUP BY
+1,2,3,4,5,6

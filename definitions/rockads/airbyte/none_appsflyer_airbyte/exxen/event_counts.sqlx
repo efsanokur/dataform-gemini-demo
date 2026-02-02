@@ -1,0 +1,46 @@
+config {
+  type: "table",
+    bigquery: {
+    partitionBy: "event_date",
+    clusterBy: ["country_code"]
+  },
+  database: `${dataform.projectConfig.vars.rockadsProject}`,
+  name: "exxen_event_counts",
+  schema: "exxen_marketing_ds",
+  dependencies: ["ads_insights_combined_exxen"],
+  tags: ['ads_insights_exxen']
+}
+
+WITH main_raw_data AS (SELECT  campaign_name,'exxen' AS app_name, ad_group_name , ad_name, event_name,IF(media_source = 'restricted', 'Facebook Ads', media_source) as media_source,
+country_code,
+amount,
+event_count,
+DATE(report_date) as event_date,
+FROM rockads-thirdparty.zotlo_marketing_ds.ads_purchase_refund_combined_zotlo
+WHERE app_name = 'Exxen'
+
+)
+SELECT * FROM (
+SELECT campaign_name, app_name, ad_group_name, ad_name, country_code,
+media_source, event_name,
+event_date,
+SUM(event_count) AS event_count,
+sum(CAST(amount AS FLOAT64)) AS revenue,
+FROM main_raw_data
+GROUP BY ALL
+)
+PIVOT (
+  MAX(event_count) as activity_event_count,
+  MAX(revenue)  as activity_revenue FOR event_name IN (
+    'reactive',
+    'trial_to_paid',
+    'trial',
+    'renewal',
+    'set_quantity',
+    'consumable',
+    'start_paid',
+    'package_upgrate',
+    'epin',
+    'package_upgrade'
+  )
+)

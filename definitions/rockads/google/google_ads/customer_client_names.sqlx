@@ -1,0 +1,43 @@
+config {
+  type: "table",
+  database: `${dataform.projectConfig.vars.rockadsProject}`,
+  name: "googleads_customer_client_names ",
+  schema: "mapping_tables",
+  tags: ['google_ads']
+}
+
+
+WITH
+  new_or_update AS (
+  SELECT
+    DISTINCT CAST(gcc.customer_client_id AS STRING) AS customer_client_id,
+    gcc.customer_client_name,
+    gcc.customer_id,
+    gc.customer_name,
+    gcc.currency
+  FROM
+    `${dataform.projectConfig.vars.rockadsProject}.googleAds.googleAds_customer_clients` gcc
+  LEFT JOIN
+    ${dataform.projectConfig.vars.rockadsProject}.googleAds.googleAds_customers gc
+  ON
+    CAST(gcc.customer_id AS STRING) = CAST(gc.customer_id AS STRING) ),
+  history AS (
+  SELECT
+    *
+  FROM
+    `${dataform.projectConfig.vars.rockadsProject}.mapping_tables.googleads_customer_client_names `
+  WHERE
+    customer_client_id NOT IN (
+    SELECT
+      customer_client_id
+    FROM
+      new_or_update ) )
+SELECT
+  *
+FROM
+  history
+UNION ALL
+SELECT
+  *
+FROM
+  new_or_update
